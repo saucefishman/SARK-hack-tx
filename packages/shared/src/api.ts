@@ -83,6 +83,18 @@ export type ReviewAnswerBody = z.infer<typeof ReviewAnswerBody>;
 export const ReviewAnswerResponse = z.array(FriendSummary);
 export type ReviewAnswerResponse = z.infer<typeof ReviewAnswerResponse>;
 
+/** PATCH /events/:id: direct edit of a shared event. Omitted fields stay as they are; the user is always an attendee. */
+export const EventEditBody = z.object({
+  description: z.string().trim().min(1).max(120).optional(),
+  date: IsoDate.optional(),
+  attendeeIds: z.array(z.string()).min(1).optional(),
+});
+export type EventEditBody = z.infer<typeof EventEditBody>;
+
+/** PATCH /events/:id response: updated friend rows (everyone who was or is now at the event). */
+export const EventEditResponse = z.array(FriendSummary);
+export type EventEditResponse = z.infer<typeof EventEditResponse>;
+
 // ---- Payback suggestions (DESIGN §15.6). Cents on the wire; shares are the FRIEND's share of an outing (what reduces the debt).
 
 export const PaybackKind = z.enum(["planned", "recurring", "discovered"]);

@@ -8,72 +8,32 @@ import {
   Text,
   View,
 } from "react-native";
-import type { FriendEntry } from "@sark/shared";
+import { USER_ID, type FriendEntry } from "@sark/shared";
 import { useFriend } from "../api/hooks";
-import {
-  Badge,
-  EmptyState,
-  ErrorState,
-  Loading,
-  type BadgeTone,
-} from "../components/ui";
-import {
-  balanceLabel,
-  formatCents,
-  formatDate,
-  formatDateTime,
-} from "../format";
+import { EmptyState, ErrorState, Loading } from "../components/ui";
+import { formatCents } from "../format";
+import { EventRow, EventSheet } from "./EventCard";
+import type { SharedExperience } from "./events-presentation";
+import { FriendSuggestion } from "./FriendSuggestion";
+import { netSpend } from "./ledger-presentation";
 import { Avatar, WarmSurface, Icon, Money, palette } from "./kit";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, radius, space } from "../theme";
+import { colors, space } from "../theme";
 
-const basisBadge = (
-  b: FriendEntry["basis"],
-): { label: string; tone: BadgeTone } => {
-  switch (b) {
-    case "confirmed":
-      return { label: "confirmed", tone: "green" };
-    case "estimated":
-      return { label: "estimated", tone: "primary" };
-    case "assumed":
-      return { label: "possible", tone: "amber" };
-    default:
-      return { label: b, tone: "grey" };
-  }
-};
-
-function EntryRow({ e }: { e: FriendEntry }) {
-  const [open, setOpen] = useState(false);
-  const b = basisBadge(e.basis);
+// Plain-language rows: who covered whom, no pipeline details (basis badges, confidence, message evidence).
+function EntryRow({ e, friendName }: { e: FriendEntry; friendName: string }) {
+  const fromFriend = e.payerName === friendName;
+  const text = e.kind === "repayment"
+    ? fromFriend ? `${friendName} paid you back` : `You paid ${friendName} back`
+    : fromFriend ? `${friendName} covered you` : `You covered ${friendName}`;
   return (
-    <View style={styles.entry}>
-      <View style={styles.rowBetween}>
-        <Text style={styles.flow}>
-          {e.payerName} {"→"} {e.beneficiaryName}
+    <View style={styles.rowBetween}>
+        <Text style={[styles.flow, e.basis === "assumed" && { color: colors.muted }]}>
+          {text}{e.basis === "assumed" ? " (maybe)" : ""}
         </Text>
-        <Text style={styles.amount}>{formatCents(e.amountCents)}</Text>
-      </View>
-      <View style={styles.badges}>
-        <Badge label={e.kind} tone="grey" />
-        <Badge label={b.label} tone={b.tone} />
-      </View>
-      {e.evidence.length > 0 ? (
-        <>
-          <Pressable onPress={() => setOpen(!open)} accessibilityRole="button">
-            <Text style={styles.link}>
-              {open ? "Hide" : "Show"} evidence ({e.evidence.length})
-            </Text>
-          </Pressable>
-          {open
-            ? e.evidence.map((ev) => (
-                <View key={ev.messageId} style={styles.receipt}>
-                  <Text style={styles.snippet}>{`“${ev.snippet}”`}</Text>
-                  <Text style={styles.ts}>{formatDateTime(ev.sentAt)}</Text>
-                </View>
-              ))
-            : null}
-        </>
-      ) : null}
+        <Text style={[styles.amount, e.basis === "assumed" && { color: colors.muted }]}>
+          {e.basis === "estimated" ? "≈ " : ""}{formatCents(e.amountCents)}
+        </Text>
     </View>
   );
 }
@@ -83,13 +43,15 @@ export default function FriendDetail() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useFriend(id);
+  const [selected, setSelected] = useState<SharedExperience | null>(null);
   if (q.isLoading) return <Loading />;
   if (q.isError)
     return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   if (!q.data) return <EmptyState title="Not found" />;
   const { friend, entries } = q.data;
+  const net = netSpend(friend);
 
-  // Group by event (null event = "Other").
+  // Group by event (null event = repayments, shown as "Paid back").
   const groups = new Map<
     string,
     { key: string; event: FriendEntry["event"]; rows: FriendEntry[] }
@@ -126,7 +88,7 @@ export default function FriendDetail() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to overview"
+          accessibilityLabel="Back"
           onPress={() => router.back()}
           style={{
             flexDirection: "row",
@@ -139,7 +101,7 @@ export default function FriendDetail() {
           <Text
             style={{ fontFamily: "InterMedium", fontSize: 12, color: "#fff" }}
           >
-            Your circle
+            Back
           </Text>
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -165,10 +127,10 @@ export default function FriendDetail() {
         <View style={{ marginTop: 25 }}>
           <Text style={{ fontFamily: "Inter", fontSize: 12, color: "#f9e2de" }}>
             {friend.balanceCents > 0
-              ? "Owes you"
+              ? `${friend.name}’s turn to cover`
               : friend.balanceCents < 0
-                ? "You owe"
-                : "Settled"}
+                ? "Your turn to cover"
+                : "You’re even"}
           </Text>
           <Text
             style={{
@@ -196,7 +158,7 @@ export default function FriendDetail() {
             <Text
               style={{ fontFamily: "Inter", fontSize: 10, color: "#ffffffad" }}
             >
-              You spent
+              You covered
             </Text>
             <Text
               style={{
@@ -206,14 +168,14 @@ export default function FriendDetail() {
                 marginTop: 5,
               }}
             >
-              {formatCents(friend.youSpentOnThemCents)}
+              {formatCents(net.youCoveredCents)}
             </Text>
           </View>
           <View>
             <Text
               style={{ fontFamily: "Inter", fontSize: 10, color: "#ffffffad" }}
             >
-              Spent on you
+              {friend.name} covered
             </Text>
             <Text
               style={{
@@ -223,54 +185,59 @@ export default function FriendDetail() {
                 marginTop: 5,
               }}
             >
-              {formatCents(friend.spentOnYouCents)}
+              {formatCents(net.theyCoveredCents)}
             </Text>
           </View>
         </View>
+        {net.repaidCents !== 0 && (
+          <Text style={{ fontFamily: "Inter", fontSize: 10, color: "#ffffffad", marginTop: 8 }}>
+            After {formatCents(Math.abs(net.repaidCents))} already paid back
+          </Text>
+        )}
       </WarmSurface>
+      <View style={{ paddingHorizontal: 20 }}>
+        <FriendSuggestion id={friend.personId} name={friend.name} embedded />
+      </View>
       <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
         <Text
           style={{ fontFamily: "Poppins", fontSize: 23, color: palette.ink }}
         >
           Shared activity
         </Text>
-        <Text
-          style={{
-            fontFamily: "Inter",
-            fontSize: 10,
-            color: palette.muted,
-            marginTop: 5,
-          }}
-        >
-          Possible spending: {formatCents(friend.possibleCents)} · excluded from
-          balance
-        </Text>
+        {friend.possibleCents > 0 && (
+          <Text
+            style={{
+              fontFamily: "Inter",
+              fontSize: 10,
+              color: palette.muted,
+              marginTop: 5,
+            }}
+          >
+            {formatCents(friend.possibleCents)} marked “maybe” isn’t counted until you confirm it in Events.
+          </Text>
+        )}
       </View>
 
       {entries.length === 0 ? <EmptyState title="No entries yet" /> : null}
 
-      {[...groups.values()].map((g) => (
-        <View key={g.key} style={styles.group}>
-          <Text style={styles.groupTitle}>
-            {g.event?.description ?? "Other activity"}
-          </Text>
-          {g.event ? (
-            <Text style={styles.groupMeta}>
-              {formatDate(g.event.date)}
-              {g.event.attendees.length
-                ? ` · ${g.event.attendees.map((a) => a.name).join(", ")}`
-                : ""}
-            </Text>
-          ) : null}
-          {g.rows.map((e) => (
-            <EntryRow key={e.id} e={e} />
-          ))}
-        </View>
-      ))}
+      <View style={{ paddingHorizontal: 18 }}>
+        {[...groups.values()].map((g) => {
+          const lines = g.rows.map((e) => <EntryRow key={e.id} e={e} friendName={friend.name} />);
+          if (!g.event) return <View key={g.key} style={styles.group}><Text style={styles.groupTitle}>Paid back</Text>{lines}</View>;
+          const event: SharedExperience = {
+            id: g.event.id,
+            title: g.event.description,
+            date: g.event.date,
+            friends: g.event.attendees.filter((a) => a.personId !== USER_ID),
+          };
+          return <EventRow key={g.key} event={event} onPress={() => setSelected(event)} footer={lines} />;
+        })}
+      </View>
 
       <Text style={styles.footer}>
-        Estimates are heuristic. Splits assume equal shares.
+        ≈ marks an estimated share.
       </Text>
+      <EventSheet event={selected} visible={!!selected} onClose={() => setSelected(null)} />
     </ScrollView>
   );
 }
@@ -293,7 +260,8 @@ const styles = StyleSheet.create({
   },
   sumSecondary: { fontFamily: "Inter", fontSize: 15, color: colors.muted },
   group: {
-    marginHorizontal: 18,
+    marginBottom: 10,
+    gap: 10,
     backgroundColor: "#fff",
     borderRadius: 24,
     padding: 18,
@@ -305,20 +273,6 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins",
     letterSpacing: -0.3,
     color: palette.ink,
-  },
-  groupMeta: {
-    fontFamily: "Inter",
-    fontSize: 10,
-    color: colors.muted,
-    marginTop: 2,
-    marginBottom: space.sm,
-  },
-  entry: {
-    paddingTop: space.md,
-    marginTop: space.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: space.sm,
   },
   rowBetween: {
     flexDirection: "row",
@@ -332,30 +286,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   amount: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "InterSemiBold",
     letterSpacing: -0.6,
     color: colors.text,
   },
-  badges: { flexDirection: "row", gap: space.sm, flexWrap: "wrap" },
-  link: {
-    fontFamily: "Inter",
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: "600",
-  },
-  receipt: {
-    backgroundColor: colors.bg,
-    borderRadius: radius.sm,
-    padding: space.md,
-  },
-  snippet: {
-    fontFamily: "Inter",
-    fontSize: 12,
-    color: colors.text,
-    fontStyle: "italic",
-  },
-  ts: { fontFamily: "Inter", fontSize: 12, color: colors.muted, marginTop: 4 },
   footer: {
     fontFamily: "Inter",
     fontSize: 12,

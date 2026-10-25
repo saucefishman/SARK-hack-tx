@@ -1,20 +1,20 @@
 // Fastify app factory. Routes per BUILDPLAN section 7.
 import cors from "@fastify/cors";
-import { ReviewAnswerBody, type HealthResponse } from "@sark/shared";
+import { EventEditBody, ReviewAnswerBody, type HealthResponse } from "@sark/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 import { getConfig } from "../config";
 import { getFriendDetail, getFriendSummaries, listOpenReviewItems } from "../db/queries";
 import type { Db } from "../db/pool";
 import type { IngestSources } from "../pipeline/ingest";
 import { dismissSuggestion, solveFriend } from "../pipeline/payback";
-import { applyReviewAnswer } from "../pipeline/review";
+import { applyReviewAnswer, editEvent } from "../pipeline/review";
 import { runPipeline } from "../pipeline/run";
 
 export async function buildApp(opts: { db: Db; llmMode?: "live" | "replay"; sources?: IngestSources }): Promise<FastifyInstance> {
   const { db } = opts;
   const llmMode = opts.llmMode ?? getConfig().LLM_MODE;
   const app = Fastify();
-  await app.register(cors, { origin: true });
+  await app.register(cors, { origin: true, methods: ["GET", "HEAD", "POST", "PATCH"] });
 
   app.get("/health", async (): Promise<HealthResponse> => ({ ok: true, llmMode }));
 
@@ -48,6 +48,14 @@ export async function buildApp(opts: { db: Db; llmMode?: "live" | "replay"; sour
     if (!rows[0]) return reply.code(404).send({ error: "review item not found" });
     if (rows[0].status !== "open") return reply.code(409).send({ error: "review item not open" });
     const affected = await applyReviewAnswer(db, req.params.id, parsed.data);
+    return getFriendSummaries(db, affected);
+  });
+
+  app.patch<{ Params: { id: string } }>("/events/:id", async (req, reply) => {
+    const parsed = EventEditBody.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: "invalid body", issues: parsed.error.issues });
+    const affected = await editEvent(db, req.params.id, parsed.data);
+    if (!affected) return reply.code(404).send({ error: "event not found" });
     return getFriendSummaries(db, affected);
   });
 

@@ -1,4 +1,4 @@
-import { FriendDetailResponse, FriendsResponse, HealthResponse, ReviewAnswerResponse, ReviewListResponse } from "@sark/shared";
+import { EventEditResponse, FriendDetailResponse, FriendsResponse, HealthResponse, ReviewAnswerResponse, ReviewListResponse } from "@sark/shared";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/api/app";
@@ -102,6 +102,20 @@ describe("api", () => {
     expect(st[0].status).toBe("answered");
     expect((await app.inject("/review")).json()).toEqual([]);
     expect((await post("r1", { dismiss: true })).statusCode).toBe(409);
+  });
+
+  it("PATCH /events/:id validates, 404s, then edits title, date and attendees", async () => {
+    const patch = (id: string, payload: unknown) => app.inject({ method: "PATCH", url: `/events/${id}`, payload: payload as object });
+    expect((await patch("e2", { date: "Feb 5" })).statusCode).toBe(400);
+    expect((await patch("zzz", { description: "x" })).statusCode).toBe(404);
+
+    const res = await patch("e2", { description: "Concert at Moody", date: "2026-02-06", attendeeIds: ["p_sam"] });
+    expect(res.statusCode).toBe(200);
+    expect(EventEditResponse.parse(res.json()).map((r) => r.personId).sort()).toEqual(["p_alex", "p_sam"]);
+    const { rows } = await db.query<{ description: string; d: string; attendee_ids: string[] }>(
+      "SELECT description, to_char(date,'YYYY-MM-DD') AS d, attendee_ids FROM event WHERE id='e2'",
+    );
+    expect(rows[0]).toEqual({ description: "Concert at Moody", d: "2026-02-06", attendee_ids: ["p_me", "p_sam"] });
   });
 
   it("POST /dev/rerun runs the pipeline (replay) and returns stage counts", async () => {

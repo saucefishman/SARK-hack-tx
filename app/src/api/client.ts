@@ -1,5 +1,7 @@
 // The only data access layer for the app. Typed with @sark/shared DTOs.
 import type {
+  EventEditBody,
+  EventEditResponse,
   FriendDetailResponse,
   FriendsResponse,
   ReviewAnswerBody,
@@ -51,4 +53,9 @@ export const getPayback = (id: string): Promise<PaybackResponse> => {
 export const dismissPayback = (id: string): Promise<PaybackResponse> => {
   if (USE_MOCKS) return Promise.reject(new Error("Connect the demo backend to dismiss a plan."));
   return request(`/payback/${encodeURIComponent(id)}/dismiss`, { method: "POST", body: JSON.stringify({}) });
+};
+
+export const editEvent = (id: string, body: EventEditBody): Promise<EventEditResponse> => {
+  if (USE_MOCKS) return Promise.reject(new Error("Connect the demo backend to edit an event."));
+  return request(`/events/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) });
 };

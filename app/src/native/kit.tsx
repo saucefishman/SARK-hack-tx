@@ -122,6 +122,8 @@ export function Icon({
     string,
     React.ComponentProps<typeof MaterialIcons>["name"]
   > = {
+    home: "home",
+    edit: "edit",
     user: "person-outline",
     people: "people-outline",
     grid: "account-balance-wallet",
@@ -311,7 +313,7 @@ export function Action({
         style={[
           k.actionText,
           large && { fontSize: 14 },
-          secondary && { color: "#b19792" },
+          secondary && { color: palette.accent },
           disabled && { color: "#c5afab" },
         ]}
       >
@@ -332,9 +334,10 @@ export function Header({
   const insets = useSafeAreaInsets();
   return (
     <View style={[k.header, { paddingTop: insets.top + 25 }]}>
-      <Text style={[k.brand, !light && { color: palette.ink }, title ? { fontSize: 32 } : undefined]}>
-        {title ?? 'Even Stevens'}
-        {!title && process.env.EXPO_PUBLIC_DEMO === "1" && <Text style={{ fontFamily: "Inter", fontSize: 9, color: light ? "#fae7e4" : palette.muted }}>  · Demo data</Text>}
+      {/* Screen title only; no app name, so screens read as an app rather than a website. */}
+      <Text style={[k.brand, !light && { color: palette.ink }, { fontSize: 32 }]}>
+        {title ?? ''}
+        {process.env.EXPO_PUBLIC_DEMO === "1" && <Text style={{ fontFamily: "Inter", fontSize: 9, color: light ? "#fae7e4" : palette.muted }}>  · Demo data</Text>}
       </Text>
       <Pressable
         accessibilityRole="button"
@@ -554,10 +557,11 @@ const k = StyleSheet.create({
     justifyContent: "center",
   },
   actionText: { fontFamily: "InterMedium", fontSize: 12, color: "#fff" },
+  // Light but clearly tappable: accent text + border, so it doesn't read as the disabled style.
   secondary: {
-    backgroundColor: "#f8f1f0",
+    backgroundColor: "#fbeee9",
     borderWidth: 1,
-    borderColor: "#f3e7e4",
+    borderColor: "#e6c3b8",
   },
   disabled: { backgroundColor: "#f6eeec" },
   header: {
