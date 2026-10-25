@@ -69,6 +69,8 @@ export function createGeminiClient(apiKey?: string, model?: string): LlmClient {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function retryable(e: unknown): boolean {
+  // A daily quota (free tier: 20 requests/day/model) won't recover within a backoff; fail fast.
+  if (/PerDay|per day/i.test(String((e as Error)?.message ?? ""))) return false;
   const status = (e as { status?: number; code?: number })?.status ?? (e as { code?: number })?.code;
   if (typeof status === "number") return status === 429 || status >= 500;
   return /\b(429|5\d\d)\b|RESOURCE_EXHAUSTED|UNAVAILABLE/.test(String((e as Error)?.message ?? ""));

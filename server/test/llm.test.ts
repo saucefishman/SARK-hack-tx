@@ -97,6 +97,12 @@ describe("live", () => {
       generateStructured(db, txnSocial, { ...txnIn, txnId: "T-4" }, { ...fast, mode: "live", client: c3 }),
     ).rejects.toThrow("bad");
     expect(c3.calls).toBe(1);
+    const daily = Object.assign(new Error("quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier"), { status: 429 });
+    const c4 = fake([daily, ok]);
+    await expect(
+      generateStructured(db, txnSocial, { ...txnIn, txnId: "T-5" }, { ...fast, mode: "live", client: c4 }),
+    ).rejects.toThrow("PerDay");
+    expect(c4.calls).toBe(1);
   });
   it("mergeDay validation triggers repair", async () => {
     const db = await testDb();
