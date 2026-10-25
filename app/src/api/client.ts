@@ -6,9 +6,17 @@ import type {
   ReviewAnswerResponse,
   ReviewListResponse,
 } from "@sark/shared";
+import Constants from "expo-constants";
 import { mockApi } from "../mocks";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+// On a phone, "localhost" is the phone itself. Default to the host that served the
+// JS bundle (the dev machine's LAN IP, e.g. "192.168.1.5:8081") on port 3000.
+function defaultApiUrl(): string {
+  const host = Constants.expoConfig?.hostUri?.split(":")[0];
+  return `http://${host || "localhost"}:3000`;
+}
+
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || defaultApiUrl();
 export const USE_MOCKS = process.env.EXPO_PUBLIC_USE_MOCKS === "1";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

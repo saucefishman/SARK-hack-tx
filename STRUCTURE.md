@@ -71,7 +71,7 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/api/main.ts` — server entry (`pnpm --filter server dev`)
 
 ## App (Expo)
-- `app/src/api/client.ts` — `getFriends`, `getFriend`, `getReview`, `answerReview`, `API_URL`, `USE_MOCKS` — the only app data access (`EXPO_PUBLIC_USE_MOCKS=1` → mocks)
+- `app/src/api/client.ts` — `getFriends`, `getFriend`, `getReview`, `answerReview`, `API_URL`, `USE_MOCKS` — the only app data access; API base = `EXPO_PUBLIC_API_URL`, else the Expo dev host on :3000 (works on phones); `EXPO_PUBLIC_USE_MOCKS=1` → mocks
 - `app/src/api/hooks.ts` — `useFriends`, `useFriend`, `useReview`, `useAnswerReview` — TanStack Query hooks
 - `app/src/mocks/index.ts` — `mockApi` — in-memory mock backend
 - `app/src/format.ts` — `formatCents`, `balanceLabel`, `formatDate`, `formatDateTime` — the one money formatter
