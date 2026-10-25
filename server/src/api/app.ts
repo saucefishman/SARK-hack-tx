@@ -54,6 +54,8 @@ export async function buildApp(opts: { db: Db; llmMode?: "live" | "replay"; sour
   app.patch<{ Params: { id: string } }>("/events/:id", async (req, reply) => {
     const parsed = EventEditBody.safeParse(req.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: "invalid body", issues: parsed.error.issues });
+    if (parsed.data.payerId && !(await db.query("SELECT 1 FROM person WHERE id = $1", [parsed.data.payerId])).rows.length)
+      return reply.code(400).send({ error: "unknown payer" });
     const affected = await editEvent(db, req.params.id, parsed.data);
     if (!affected) return reply.code(404).send({ error: "event not found" });
     return getFriendSummaries(db, affected);

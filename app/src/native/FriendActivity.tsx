@@ -219,6 +219,8 @@ export default function FriendDetail() {
             title: g.event.description,
             date: g.event.date,
             friends: g.event.attendees.filter((a) => a.personId !== USER_ID),
+            totalCents: g.event.totalCents,
+            payerId: g.event.payerIds?.[0],
           };
           return <EventRow key={g.key} event={event} onPress={() => setSelected(event)} footer={lines} />;
         })}

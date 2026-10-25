@@ -118,7 +118,7 @@ export async function getFriendDetail(db: Db, personId: string): Promise<FriendD
   const eventIds = [...new Set(mine.map((e) => e.eventId).filter((x): x is string => !!x))];
   const events = new Map<
     string,
-    { id: string; date: string; description: string; attendee_ids: string[]; context_message_ids: string[] }
+    { id: string; date: string; description: string; attendee_ids: string[]; context_message_ids: string[]; total_cents: number | null; payer_ids: string[] }
   >();
   if (eventIds.length) {
     const { rows } = await db.query<{
@@ -127,8 +127,11 @@ export async function getFriendDetail(db: Db, personId: string): Promise<FriendD
       description: string;
       attendee_ids: string[];
       context_message_ids: string[];
+      total_cents: number | null;
+      payer_ids: string[];
     }>(
-      `SELECT id, to_char(date,'YYYY-MM-DD') AS date, description, attendee_ids, context_message_ids
+      `SELECT id, to_char(date,'YYYY-MM-DD') AS date, description, attendee_ids, context_message_ids, total_cents,
+              ARRAY(SELECT person_id FROM event_payer p WHERE p.event_id = event.id ORDER BY person_id) AS payer_ids
        FROM event WHERE id = ANY($1)`,
       [eventIds],
     );
@@ -164,6 +167,8 @@ export async function getFriendDetail(db: Db, personId: string): Promise<FriendD
             date: ev.date,
             description: ev.description,
             attendees: ev.attendee_ids.map((id): PersonRef => ({ personId: id, name: nameOf(id) })),
+            totalCents: ev.total_cents,
+            payerIds: ev.payer_ids,
           }
         : null,
       payerName: nameOf(e.payerId),

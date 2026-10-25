@@ -39,6 +39,10 @@ export const FriendEntry = z.object({
       date: IsoDate,
       description: z.string(),
       attendees: z.array(PersonRef),
+      /** What the event cost in total, when known. */
+      totalCents: z.number().int().nullable().optional(),
+      /** Who paid for it (usually one person). */
+      payerIds: z.array(z.string()).optional(),
     })
     .nullable(),
   payerName: z.string(),
@@ -88,6 +92,10 @@ export const EventEditBody = z.object({
   description: z.string().trim().min(1).max(120).optional(),
   date: IsoDate.optional(),
   attendeeIds: z.array(z.string()).min(1).optional(),
+  /** Who paid. With `totalCents`, replaces the event's payers with this one person, as confirmed. Added as an attendee. */
+  payerId: z.string().optional(),
+  /** What the whole event cost; split evenly across attendees. */
+  totalCents: z.number().int().positive().max(10_000_000).optional(),
 });
 export type EventEditBody = z.infer<typeof EventEditBody>;
 
