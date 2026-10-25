@@ -313,7 +313,7 @@ export function Action({
         style={[
           k.actionText,
           large && { fontSize: 14 },
-          secondary && { color: "#b19792" },
+          secondary && { color: palette.accent },
           disabled && { color: "#c5afab" },
         ]}
       >
@@ -557,10 +557,11 @@ const k = StyleSheet.create({
     justifyContent: "center",
   },
   actionText: { fontFamily: "InterMedium", fontSize: 12, color: "#fff" },
+  // Light but clearly tappable: accent text + border, so it doesn't read as the disabled style.
   secondary: {
-    backgroundColor: "#f8f1f0",
+    backgroundColor: "#fbeee9",
     borderWidth: 1,
-    borderColor: "#f3e7e4",
+    borderColor: "#e6c3b8",
   },
   disabled: { backgroundColor: "#f6eeec" },
   header: {
