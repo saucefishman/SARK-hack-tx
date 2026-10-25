@@ -127,6 +127,7 @@ export function Icon({
     people: "people-outline",
     grid: "account-balance-wallet",
     review: "fact-check",
+    payback: "swap-horiz",
     arrow: "arrow-forward",
     back: "arrow-back",
     search: "search",
@@ -285,11 +286,13 @@ export function Action({
   onPress,
   disabled = false,
   secondary = false,
+  large = false,
 }: {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   secondary?: boolean;
+  large?: boolean;
 }) {
   return (
     <Pressable
@@ -298,6 +301,7 @@ export function Action({
       onPress={onPress}
       style={({ pressed }) => [
         k.action,
+        large && { minHeight: 48 },
         secondary && k.secondary,
         disabled && k.disabled,
         pressed && !disabled && { opacity: 0.8 },
@@ -306,6 +310,7 @@ export function Action({
       <Text
         style={[
           k.actionText,
+          large && { fontSize: 14 },
           secondary && { color: "#8b9eb8" },
           disabled && { color: "#a5b5cb" },
         ]}
@@ -327,6 +332,7 @@ export function Header({
     <View style={[k.header, { paddingTop: insets.top + 25 }]}>
       <Text style={[k.brand, !light && { color: palette.ink }]}>
         Friend Ledger
+        {process.env.EXPO_PUBLIC_DEMO === "1" && <Text style={{ fontFamily: "Inter", fontSize: 9, color: light ? "#dfebff" : palette.muted }}>  · Demo data</Text>}
       </Text>
       <Pressable
         accessibilityRole="button"

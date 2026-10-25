@@ -18,6 +18,7 @@ import { reviewAnswer, summarizeFriends } from "./ledger-presentation";
 import { AccountSheet } from "./AccountSheet";
 import {
   Action,
+  Sheet,
   Avatar,
   NativeCanvas,
   Blue,
@@ -137,18 +138,18 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
               onPress={() => toggle(person.personId)}
               style={[s.option, on && s.optionOn]}
             >
-              <Avatar name={person.name} size={28} />
+              <Avatar name={person.name} size={32} />
               <Text style={s.person} numberOfLines={1}>
                 {person.name}
               </Text>
               <View
                 style={[
                   s.check,
-                  !multiple && { borderRadius: 8 },
+                  !multiple && { borderRadius: 10 },
                   on && s.checked,
                 ]}
               >
-                {on && <Icon name="check" size={11} color="#fff" />}
+                {on && <Icon name="check" size={15} color="#fff" />}
               </View>
             </Pressable>
           );
@@ -164,6 +165,7 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
           <Action
             title={content.dismissLabel}
             secondary
+            large
             disabled={busy}
             onPress={() =>
               answer.mutate({ id: item.id, body: { dismiss: true } })
@@ -173,6 +175,7 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
         <View style={{ flex: 1 }}>
           <Action
             title={busy ? "Saving…" : "Confirm"}
+            large
             disabled={!selected.length || busy}
             onPress={() =>
               answer.mutate({
@@ -187,6 +190,24 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
     </Animated.View>
   );
 }
+export function ReviewSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const query = useReview();
+  return (
+    <Sheet visible={visible} onClose={onClose} label="Review activity">
+      <Text style={[s.title, { color: palette.ink, fontSize: 25 }]}>Review activity</Text>
+      <Text style={[s.subtitle, { color: "#7b8fa9", fontSize: 13, lineHeight: 20, marginBottom: 18 }]}>
+        {query.data?.length ?? 0} pending · A few details to keep your balance accurate.
+      </Text>
+      {query.isLoading ? <Loading label="Loading activity…" /> : query.isError ?
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} /> :
+        <View style={{ gap: 12 }}>
+          {query.data?.length ? query.data.map(item => <ReviewCard key={item.id} item={item} />) :
+            <EmptyState title="You're all caught up" body="No activity left to review." />}
+        </View>}
+    </Sheet>
+  );
+}
+
 export default function Review() {
   const query = useReview();
   const friends = useFriends();
@@ -321,15 +342,15 @@ const s = StyleSheet.create({
   },
   expenseTitle: {
     fontFamily: "Poppins",
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 19,
+    lineHeight: 27,
     letterSpacing: -0.3,
     color: palette.ink,
   },
-  date: { fontFamily: "Inter", fontSize: 10, color: "#97a5b8", marginTop: 5 },
+  date: { fontFamily: "Inter", fontSize: 12, color: "#8092ab", marginTop: 5 },
   amount: {
     fontFamily: "InterSemiBold",
-    fontSize: 16,
+    fontSize: 18,
     color: "#233954",
     letterSpacing: -0.5,
     paddingTop: 2,
@@ -346,29 +367,29 @@ const s = StyleSheet.create({
   },
   eyebrow: {
     fontFamily: "InterMedium",
-    fontSize: 7,
+    fontSize: 10,
     letterSpacing: 1.2,
     color: "#7f9bc1",
     marginBottom: 5,
   },
   prompt: {
     fontFamily: "Poppins",
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 18,
+    lineHeight: 25,
     letterSpacing: -0.35,
     color: "#2d4668",
   },
   hint: {
     fontFamily: "Inter",
-    fontSize: 9,
-    lineHeight: 15,
-    color: "#8b9fba",
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#7389a7",
     marginTop: 4,
   },
   count: {
     alignSelf: "flex-start",
     fontFamily: "Inter",
-    fontSize: 8,
+    fontSize: 10,
     padding: 5,
     borderRadius: 7,
     borderWidth: 1,
@@ -378,14 +399,14 @@ const s = StyleSheet.create({
   },
   noteToggle: {
     fontFamily: "Inter",
-    fontSize: 10,
+    fontSize: 13,
     color: "#718bad",
     marginTop: 9,
   },
   note: {
     fontFamily: "Inter",
-    fontSize: 10,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 19,
     color: "#8d9eb6",
     backgroundColor: "#f5f8fc",
     padding: 9,
@@ -402,7 +423,7 @@ const s = StyleSheet.create({
   option: {
     flexBasis: "48%",
     flexGrow: 1,
-    minHeight: 46,
+    minHeight: 56,
     padding: 7,
     flexDirection: "row",
     alignItems: "center",
@@ -413,10 +434,10 @@ const s = StyleSheet.create({
     backgroundColor: "#f6f9fe",
   },
   optionOn: { borderColor: "#b0cbf0", backgroundColor: "#e4eeff" },
-  person: { flex: 1, fontFamily: "Poppins", fontSize: 10, color: "#3865a7" },
+  person: { flex: 1, fontFamily: "Poppins", fontSize: 13, color: "#3865a7" },
   check: {
-    width: 14,
-    height: 14,
+    width: 20,
+    height: 20,
     borderWidth: 1,
     borderColor: "#cfdbeb",
     borderRadius: 4,

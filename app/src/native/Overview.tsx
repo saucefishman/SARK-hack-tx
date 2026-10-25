@@ -16,6 +16,7 @@ import { useFriends, useReview } from "../api/hooks";
 import { ErrorState, Loading } from "../components/ui";
 import { formatCents } from "../format";
 import { AccountSheet } from "./AccountSheet";
+import { ReviewSheet } from "./Review";
 import {
   Avatar,
   NativeCanvas,
@@ -41,6 +42,7 @@ export default function Overview() {
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [account, setAccount] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [friend, setFriend] = useState<FriendSummary | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -124,7 +126,7 @@ export default function Overview() {
               </View>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.navigate("/review")}
+                onPress={() => setReviewOpen(true)}
                 style={({ pressed }) => [
                   s.review,
                   { opacity: pressed ? 0.8 : 1 },
@@ -254,6 +256,7 @@ export default function Overview() {
         </ScrollView>
         </View>
       </NativeCanvas>
+      <ReviewSheet visible={reviewOpen} onClose={() => setReviewOpen(false)} />
       <AccountSheet
         visible={account}
         onClose={() => setAccount(false)}

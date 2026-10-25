@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Tabs } from "expo-router";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useReview } from "../api/hooks";
 import {
   BlurTargetContext,
   type NativeBlurTarget,
@@ -11,7 +10,6 @@ import {
 } from "./kit";
 export default function FinanceTabs() {
   const insets = useSafeAreaInsets();
-  const review = useReview();
   const [target, setTarget] = useState<NativeBlurTarget | undefined>(undefined);
   return (
     <BlurTargetContext.Provider value={{ target, setTarget }}>
@@ -36,10 +34,8 @@ export default function FinanceTabs() {
               index={state.index}
               options={state.routes.map((route) => ({
                 key: route.key,
-                label: route.name === "review" ? "Review" : "Overview",
-                icon: route.name === "review" ? "review" : "grid",
-                badge:
-                  route.name === "review" ? review.data?.length : undefined,
+                label: route.name === "payback" ? "Payback" : "Overview",
+                icon: route.name === "payback" ? "payback" : "grid",
               }))}
               onSelect={(index) => {
                 const route = state.routes[index];
@@ -55,7 +51,7 @@ export default function FinanceTabs() {
         )}
       >
         <Tabs.Screen name="index" options={{ title: "Overview" }} />
-        <Tabs.Screen name="review" options={{ title: "Review" }} />
+        <Tabs.Screen name="payback" options={{ title: "Payback" }} />
       </Tabs>
     </BlurTargetContext.Provider>
   );

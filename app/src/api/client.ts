@@ -5,6 +5,7 @@ import type {
   ReviewAnswerBody,
   ReviewAnswerResponse,
   ReviewListResponse,
+  PaybackResponse,
 } from "@sark/shared";
 import Constants from "expo-constants";
 import { mockApi } from "../mocks";
@@ -41,3 +42,13 @@ export const answerReview = (id: string, body: ReviewAnswerBody): Promise<Review
   USE_MOCKS
     ? mockApi.answerReview(id, body)
     : request(`/review/${encodeURIComponent(id)}/answer`, { method: "POST", body: JSON.stringify(body) });
+
+export const getPayback = (id: string): Promise<PaybackResponse> => {
+  if (USE_MOCKS) return Promise.reject(new Error("Connect the demo backend to load payback ideas."));
+  return request(`/friends/${encodeURIComponent(id)}/payback`);
+};
+
+export const dismissPayback = (id: string): Promise<PaybackResponse> => {
+  if (USE_MOCKS) return Promise.reject(new Error("Connect the demo backend to dismiss a plan."));
+  return request(`/payback/${encodeURIComponent(id)}/dismiss`, { method: "POST", body: JSON.stringify({}) });
+};
