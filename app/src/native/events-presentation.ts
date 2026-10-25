@@ -1,6 +1,6 @@
 import { USER_ID, type FriendDetailResponse, type PaybackItem, type PaybackResponse, type PersonRef } from '@sark/shared';
 
-export type SharedExperience = { id: string; title: string; date: string; friends: PersonRef[] };
+export type SharedExperience = { id: string; title: string; date: string; friends: PersonRef[]; totalCents?: number | null; payerId?: string };
 export type NewExperience = { item: PaybackItem; friend: PersonRef; debtCents: number; toleranceCents: number };
 
 export function localToday() {
@@ -24,7 +24,7 @@ export function sharedExperiences(details: FriendDetailResponse[], asOf: string)
       if (!title) continue;
       const existing = events.get(event.id);
       const people = new Map([...(existing?.friends ?? []), ...participants].map(person => [person.personId, person]));
-      events.set(event.id, { id: event.id, title, date: event.date, friends: [...people.values()].sort((a, b) => a.name.localeCompare(b.name)) });
+      events.set(event.id, { id: event.id, title, date: event.date, friends: [...people.values()].sort((a, b) => a.name.localeCompare(b.name)), totalCents: event.totalCents, payerId: event.payerIds?.[0] });
     }
   }
   return [...events.values()].sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));

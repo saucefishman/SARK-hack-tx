@@ -73,7 +73,7 @@ async function applyReviewAnswerImpl(db: Db, reviewId: string, body: ReviewAnswe
 }
 
 /**
- * Direct edit of one event (PATCH /events/:id), then the same single-event re-run as a review answer.
+ * Direct edit of one event (PATCH /events/:id): name, date, attendees, and who paid / total cost; then the same single-event re-run as a review answer.
  * Returns affected friend ids, or null if the event is unknown.
  * TODO: edits live on the event row, so a full pipeline reset (`pnpm demo`, /dev/rerun) rebuilds events without them.
  */
@@ -94,6 +94,31 @@ export async function editEvent(db: Db, eventId: string, body: EventEditBody): P
        WHERE event_id = $1 AND kind = 'attendees' AND status = 'answered'`,
       [eventId, attendees.filter((id) => id !== USER_ID)],
     );
+  }
+  if (body.payerId !== undefined || body.totalCents !== undefined) {
+    // Money edit: one confirmed payer for the whole amount. Attribution keeps confirmed rows with an amount as they are.
+    const { rows: pays } = await db.query<{ person_id: string; amount_cents: number | null; evidence_message_id: string | null; txn_id: string | null }>(
+      "SELECT person_id, amount_cents, evidence_message_id, txn_id FROM event_payer WHERE event_id = $1 ORDER BY amount_cents DESC NULLS LAST, person_id",
+      [eventId],
+    );
+    pays.forEach((p) => ids.add(p.person_id));
+    const payer = body.payerId ?? pays[0]?.person_id ?? USER_ID;
+    const total = body.totalCents ?? (pays.length && pays.every((p) => p.amount_cents !== null) ? pays.reduce((s, p) => s + p.amount_cents!, 0) : null);
+    const prev = pays.find((p) => p.person_id === payer);
+    ids.add(payer);
+    await db.tx(async (tx) => {
+      await tx.query("DELETE FROM event_payer WHERE event_id = $1", [eventId]);
+      await tx.query(
+        "INSERT INTO event_payer (event_id, person_id, amount_cents, basis, evidence_message_id, txn_id) VALUES ($1,$2,$3,'confirmed',$4,$5)",
+        [eventId, payer, total, prev?.evidence_message_id ?? null, prev?.txn_id ?? null],
+      );
+      await tx.query(
+        "UPDATE event SET total_cents = $2, attendee_ids = (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(attendee_ids || $3::text) x) WHERE id = $1",
+        [eventId, total, payer],
+      );
+      // The user settled who paid; an open "Did X cover you?" question is moot.
+      await tx.query("DELETE FROM review_item WHERE event_id = $1 AND kind = 'payer' AND status = 'open'", [eventId]);
+    });
   }
   for (const f of await reprocessEvent(db, eventId)) ids.add(f);
   ids.delete(USER_ID);

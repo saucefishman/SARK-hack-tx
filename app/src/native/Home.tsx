@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEventFeed } from '../api/event-hooks';
 import { useReview } from '../api/hooks';
 import { ErrorState, Loading } from '../components/ui';
-import { formatCents, formatDate } from '../format';
+import { formatDate } from '../format';
 import { AccountSheet } from './AccountSheet';
 import { Action, Avatar, Header, Icon, NativeCanvas, WarmSurface, palette } from './kit';
 import { Constellation } from './Constellation';
@@ -40,11 +40,7 @@ export default function Home() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 115 + insets.bottom }} refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={() => { void feed.refresh(); void reviews.refetch(); }} tintColor={palette.accent} colors={[palette.accent]} />}>
         <WarmSurface>
           <Header title={greeting()} onAccount={() => setAccount(true)} />
-          <View style={s.hero}>
-            {feed.friends.isSuccess && <View style={s.stats}>
-              <View><Text style={s.statLabel}>Your turn to cover</Text><Text style={s.statValue}>{formatCents(totals.owingCents)}</Text></View>
-            </View>}
-          </View>
+          <View style={s.hero} />
           <View style={s.lip} />
         </WarmSurface>
         <View style={s.body}>
@@ -89,9 +85,6 @@ export default function Home() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
   hero: { paddingHorizontal: 24, paddingBottom: 26 },
-  stats: { flexDirection: 'row', gap: 28, marginTop: 4 },
-  statLabel: { fontFamily: 'Inter', fontSize: 10, color: '#ffffffad' },
-  statValue: { fontFamily: 'InterMedium', fontSize: 18, color: '#fff', marginTop: 4 },
   lip: { height: 23, borderTopLeftRadius: 31, borderTopRightRadius: 31, backgroundColor: palette.bg },
   body: { paddingHorizontal: 20 },
   circle: { marginBottom: 28 },

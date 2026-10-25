@@ -1,17 +1,27 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { USER_ID } from '@sark/shared';
 import { useEditEvent, useFriends } from '../api/hooks';
-import { formatDate } from '../format';
+import { formatCents, formatDate } from '../format';
 import { Action, Avatar, Icon, Sheet, palette } from './kit';
 import type { SharedExperience } from './events-presentation';
 
 // Shared event list row + detail/edit sheet, used by the Events tab and a friend's balance page.
 
-type Draft = { title: string; date: string; attendeeIds: string[] };
+type Draft = { title: string; date: string; attendeeIds: string[]; amount: string; payerId: string };
+
+/** "42", "42.5", "$1,042.50" -> cents; null when blank; NaN when not a positive amount. */
+function parseCents(amount: string) {
+  const clean = amount.replace(/[$,\s]/g, '');
+  if (!clean) return null;
+  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return NaN;
+  const cents = Math.round(Number(clean) * 100);
+  return cents > 0 ? cents : NaN;
+}
 
 const validDraft = (draft: Draft) =>
-  !!draft.title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(draft.date) && !Number.isNaN(Date.parse(draft.date)) && draft.attendeeIds.length > 0;
+  !!draft.title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(draft.date) && !Number.isNaN(Date.parse(draft.date)) && draft.attendeeIds.length > 0 && !Number.isNaN(parseCents(draft.amount));
 
 export function monthLabel(date: string) {
   const [year, month] = date.split('-').map(Number);
@@ -30,7 +40,7 @@ export function EventRow({ event, onPress, footer }: { event: SharedExperience; 
   </Pressable>;
 }
 
-/** Event details with "Edit event" (name, date, who was there). Saving refetches balances. */
+/** Event details with "Edit event" (name, date, who was there, what it cost and who paid). Saving refetches balances. */
 export function EventSheet({ event, visible, onClose }: { event: SharedExperience | null; visible: boolean; onClose: () => void }) {
   const router = useRouter();
   const friends = useFriends();
@@ -39,12 +49,13 @@ export function EventSheet({ event, visible, onClose }: { event: SharedExperienc
   const [saved, setSaved] = useState<SharedExperience | null>(null);
   useEffect(() => { if (visible) { setDraft(null); setSaved(null); edit.reset(); } }, [visible, event?.id]);
   const current = saved?.id === event?.id ? saved : event;
+  const payerName = (id: string) => id === USER_ID ? 'you' : current?.friends.find(friend => friend.personId === id)?.name ?? friends.data?.find(friend => friend.personId === id)?.name ?? 'someone';
   return <Sheet visible={visible} onClose={onClose} label="Shared experience">
     {current && !draft && <View style={{ gap: 17 }}>
       <Text style={s.eyebrow}>A SHARED MEMORY</Text>
       <Text style={s.detailTitle}>{current.title}</Text>
-      <Text style={s.description}>{formatDate(current.date)}</Text>
-      <Action title="Edit event" secondary onPress={() => { edit.reset(); setDraft({ title: current.title, date: current.date, attendeeIds: current.friends.map(friend => friend.personId) }); }} />
+      <Text style={s.description}>{formatDate(current.date)}{current.totalCents ? ` · ${formatCents(current.totalCents)}${current.payerId ? `, paid by ${payerName(current.payerId)}` : ''}` : ''}</Text>
+      <Action title="Edit event" secondary onPress={() => { edit.reset(); setDraft({ title: current.title, date: current.date, attendeeIds: current.friends.map(friend => friend.personId), amount: current.totalCents ? (current.totalCents / 100).toFixed(2) : '', payerId: current.payerId ?? USER_ID }); }} />
       <Text style={s.sectionTitle}>Together with</Text>
       {current.friends.map(friend => <Pressable accessibilityRole="button" accessibilityLabel={`View your balance with ${friend.name}`} key={friend.personId} onPress={() => { onClose(); router.push({ pathname: '/friends/[id]', params: { id: friend.personId } }); }} style={s.personRow}><Avatar name={friend.name} size={42} /><Text style={s.personName}>{friend.name}</Text><Icon name="chevron" size={20} color={palette.muted} /></Pressable>)}
       <Text style={s.source}>Tap a friend to see your balance with them.</Text>
@@ -59,16 +70,33 @@ export function EventSheet({ event, visible, onClose }: { event: SharedExperienc
       <View style={s.chips}>
         {(friends.data ?? []).map(friend => {
           const on = draft.attendeeIds.includes(friend.personId);
-          return <Pressable key={friend.personId} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => setDraft({ ...draft, attendeeIds: on ? draft.attendeeIds.filter(id => id !== friend.personId) : [...draft.attendeeIds, friend.personId] })} style={[s.chip, on && s.chipOn]}>
+          return <Pressable key={friend.personId} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => setDraft({ ...draft, attendeeIds: on ? draft.attendeeIds.filter(id => id !== friend.personId) : [...draft.attendeeIds, friend.personId], payerId: on && draft.payerId === friend.personId ? USER_ID : draft.payerId })} style={[s.chip, on && s.chipOn]}>
             <Avatar name={friend.name} size={22} /><Text style={[s.chipText, on && { color: '#fff' }]}>{friend.name}</Text>
           </Pressable>;
         })}
       </View>
-      {(edit.isError || !validDraft(draft)) && <Text accessibilityRole="alert" style={s.error}>{edit.isError ? 'Couldn’t save. Please try again.' : 'Add a name, a valid date and at least one friend.'}</Text>}
+      <Text style={s.label}>Total cost ($)</Text>
+      <TextInput accessibilityLabel="Total cost in dollars" value={draft.amount} onChangeText={amount => setDraft({ ...draft, amount })} placeholder="0.00" placeholderTextColor={palette.muted} keyboardType="decimal-pad" style={s.input} />
+      <Text style={s.label}>Who paid</Text>
+      <View style={s.chips}>
+        {[{ personId: USER_ID, name: 'You' }, ...(friends.data ?? []).filter(friend => draft.attendeeIds.includes(friend.personId))].map(person => {
+          const on = draft.payerId === person.personId;
+          return <Pressable key={person.personId} accessibilityRole="radio" accessibilityState={{ checked: on }} onPress={() => setDraft({ ...draft, payerId: person.personId })} style={[s.chip, on && s.chipOn]}>
+            <Avatar name={person.name} size={22} /><Text style={[s.chipText, on && { color: '#fff' }]}>{person.name}</Text>
+          </Pressable>;
+        })}
+      </View>
+      <Text style={s.source}>Split evenly between everyone who was there.</Text>
+      {(edit.isError || !validDraft(draft)) && <Text accessibilityRole="alert" style={s.error}>{edit.isError ? 'Couldn’t save. Please try again.' : 'Add a name, a valid date, at least one friend and a valid amount.'}</Text>}
       <Action title={edit.isPending ? 'Saving…' : 'Save changes'} onPress={() => {
         if (!validDraft(draft) || edit.isPending) return;
-        edit.mutate({ id: current.id, body: { description: draft.title.trim(), date: draft.date, attendeeIds: draft.attendeeIds } }, {
-          onSuccess: () => { setSaved({ ...current, title: draft.title.trim(), date: draft.date, friends: (friends.data ?? []).filter(friend => draft.attendeeIds.includes(friend.personId)).map(friend => ({ personId: friend.personId, name: friend.name })) }); setDraft(null); },
+        // Money is sent only when it changed: saving it turns an estimate or a guessed payer into a confirmed one.
+        const cents = parseCents(draft.amount);
+        const totalChanged = cents !== null && cents !== current.totalCents;
+        const payerChanged = draft.payerId !== (current.payerId ?? USER_ID);
+        const money = totalChanged || payerChanged ? { payerId: draft.payerId, ...(totalChanged ? { totalCents: cents } : {}) } : {};
+        edit.mutate({ id: current.id, body: { description: draft.title.trim(), date: draft.date, attendeeIds: draft.attendeeIds, ...money } }, {
+          onSuccess: () => { setSaved({ ...current, title: draft.title.trim(), date: draft.date, friends: (friends.data ?? []).filter(friend => draft.attendeeIds.includes(friend.personId)).map(friend => ({ personId: friend.personId, name: friend.name })), totalCents: cents ?? current.totalCents, payerId: draft.payerId }); setDraft(null); },
         });
       }} />
       <Action title="Cancel" secondary onPress={() => setDraft(null)} />

@@ -1,9 +1,9 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
+  Animated,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -12,12 +12,12 @@ import { USER_ID, type FriendEntry } from "@sark/shared";
 import { useFriend } from "../api/hooks";
 import { EmptyState, ErrorState, Loading } from "../components/ui";
 import { formatCents } from "../format";
-import { DebtDrain } from "./DebtDrain";
+import { DebtDrain, type DrainScroll } from "./DebtDrain";
 import { EventRow, EventSheet } from "./EventCard";
 import type { SharedExperience } from "./events-presentation";
 import { FriendSuggestion } from "./FriendSuggestion";
 import { netSpend } from "./ledger-presentation";
-import { Avatar, WarmSurface, Icon, Money, palette } from "./kit";
+import { Avatar, WarmSurface, Icon, palette } from "./kit";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, space } from "../theme";
 
@@ -45,6 +45,10 @@ export default function FriendDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useFriend(id);
   const [selected, setSelected] = useState<SharedExperience | null>(null);
+  // Feeds the debt drain, which plays in step with the scroll.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [page, setPage] = useState({ viewport: 0, content: 0, offset: 0 });
+  const drainScroll: DrainScroll | undefined = page.viewport && page.content ? { y: scrollY, ...page } : undefined;
   if (q.isLoading) return <Loading />;
   if (q.isError)
     return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
@@ -64,8 +68,12 @@ export default function FriendDetail() {
   }
 
   return (
-    <ScrollView
-        showsVerticalScrollIndicator={false}
+    <Animated.ScrollView
+      showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+      onLayout={(e) => { const viewport = e.nativeEvent.layout.height; setPage((p) => ({ ...p, viewport })); }}
+      onContentSizeChange={(_, content) => setPage((p) => ({ ...p, content }))}
       style={{ backgroundColor: palette.bg }}
       contentContainerStyle={[
         styles.content,
@@ -125,26 +133,6 @@ export default function FriendDetail() {
             </Text>
           </View>
         </View>
-        <View style={{ marginTop: 25 }}>
-          <Text style={{ fontFamily: "Inter", fontSize: 12, color: "#f9e2de" }}>
-            {friend.balanceCents > 0
-              ? `${friend.name}’s turn to cover`
-              : friend.balanceCents < 0
-                ? "Your turn to cover"
-                : "You’re even"}
-          </Text>
-          <Text
-            style={{
-              fontFamily: "InterSemiBold",
-              fontSize: 45,
-              letterSpacing: -1.5,
-              color: "#fff",
-              marginTop: 5,
-            }}
-          >
-            <Money cents={Math.abs(friend.balanceCents)} light />
-          </Text>
-        </View>
         <View
           style={{
             flexDirection: "row",
@@ -196,8 +184,8 @@ export default function FriendDetail() {
           </Text>
         )}
       </WarmSurface>
-      <View style={{ paddingHorizontal: 20, gap: 16 }}>
-        <DebtDrain id={friend.personId} name={friend.name} />
+      <View style={{ paddingHorizontal: 20, gap: 16 }} onLayout={(e) => { const offset = e.nativeEvent.layout.y; setPage((p) => ({ ...p, offset })); }}>
+        <DebtDrain id={friend.personId} name={friend.name} scroll={drainScroll} />
         <FriendSuggestion id={friend.personId} name={friend.name} embedded />
       </View>
       <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
@@ -231,6 +219,8 @@ export default function FriendDetail() {
             title: g.event.description,
             date: g.event.date,
             friends: g.event.attendees.filter((a) => a.personId !== USER_ID),
+            totalCents: g.event.totalCents,
+            payerId: g.event.payerIds?.[0],
           };
           return <EventRow key={g.key} event={event} onPress={() => setSelected(event)} footer={lines} />;
         })}
@@ -240,7 +230,7 @@ export default function FriendDetail() {
         ≈ marks an estimated share.
       </Text>
       <EventSheet event={selected} visible={!!selected} onClose={() => setSelected(null)} />
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

@@ -116,6 +116,14 @@ describe("api", () => {
       "SELECT description, to_char(date,'YYYY-MM-DD') AS d, attendee_ids FROM event WHERE id='e2'",
     );
     expect(rows[0]).toEqual({ description: "Concert at Moody", d: "2026-02-06", attendee_ids: ["p_me", "p_sam"] });
+
+    expect((await patch("e2", { payerId: "p_nobody", totalCents: 1000 })).statusCode).toBe(400);
+    expect((await patch("e2", { totalCents: 0 })).statusCode).toBe(400);
+    expect((await patch("e2", { payerId: "p_sam", totalCents: 8000 })).statusCode).toBe(200);
+    const { rows: pays } = await db.query<{ person_id: string; amount_cents: number; basis: string }>(
+      "SELECT person_id, amount_cents, basis FROM event_payer WHERE event_id='e2'",
+    );
+    expect(pays).toEqual([{ person_id: "p_sam", amount_cents: 8000, basis: "confirmed" }]);
   });
 
   it("POST /dev/rerun runs the pipeline (replay) and returns stage counts", async () => {

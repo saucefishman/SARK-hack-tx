@@ -30,11 +30,12 @@ export default function Overview() {
   if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   return <View style={s.screen}>
     <NativeCanvas>
-      <WarmSurface>
-        <Header title="Friends" onAccount={() => setAccount(true)} />
-        <View style={s.lip} />
-      </WarmSurface>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={s.scroll} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 115 + insets.bottom }} refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={palette.accent} colors={[palette.accent]} progressBackgroundColor={palette.bg} />}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={s.scroll} contentContainerStyle={{ paddingBottom: 115 + insets.bottom }} refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={palette.accent} colors={[palette.accent]} progressBackgroundColor={palette.bg} />}>
+        <WarmSurface>
+          <Header title="Friends" onAccount={() => setAccount(true)} />
+          <View style={s.lip} />
+        </WarmSurface>
+        <View style={{ paddingHorizontal: 22 }}>
         <View style={s.search}>
           <Icon name="search" size={22} color={palette.muted} />
           <TextInput accessibilityLabel="Search friends by name" placeholder="Find a friend" placeholderTextColor={palette.muted} value={search} onChangeText={setSearch} style={s.input} />
@@ -57,6 +58,7 @@ export default function Overview() {
           </Pressable>)}
         </View>
         {!shown.length && <View style={s.empty}><Text style={s.moments}>{friends.length ? 'No friends found. Try another name.' : 'Your shared moments will bring your people here.'}</Text></View>}
+        </View>
       </ScrollView>
     </NativeCanvas>
     <AccountSheet visible={account} onClose={() => setAccount(false)} owed={totals.owedCents} owe={totals.owingCents} available={query.isSuccess} failed={query.isError} onRetry={() => void query.refetch()} />
