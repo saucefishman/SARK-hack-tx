@@ -81,6 +81,20 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/llm/client.ts` — `traceLlmCall`, `LlmSource` — `llm:<promptId>` chain runs recording source (cache|fixture|live); `muse:chat` / `muse:web_search` llm runs (with token usage) come from `llm/muse.ts`
 - `server/test/env.test.ts` — guard: every config env var is documented in `.env.example`
 
+## Payback suggestions (DESIGN §15/§16)
+- `server/migrations/003_payback.sql` — `future_event`, `recurring_pattern`, `price_quote` (SerpAPI cache), `payback_candidate`, `payback_suggestion`, `payback_dismissal` — all derived or cache except dismissals; nothing here is a source of truth for debt
+- `packages/shared/src/api.ts` — `PaybackResponse`, `PaybackSuggestion`, `PaybackItem`, `PaybackKind`, `FriendSummary.paybackCount` — payback DTOs (cents; shares are the friend's share of an outing)
+- `server/src/pipeline/payback.ts` — `runPayback(db, opts)`, `solveFriend(db, friendId)`, `dismissSuggestion(db, id)`, `friendShareCents`, `activityKey` — pipeline stage `payback` (after `ledger`) and the read path behind `GET /friends/:id/payback`; only LLM call is `planFinder`
+- `server/src/domain/payback.ts` — `solvePayback(debt, options, cfg)`, `toleranceCents`, `TRUST` (planned 1 / discovered 0.9 / recurring ≤ 0.5 × regularity), `isNovel` — pure bundle solver
+- `server/src/domain/plans.ts` — `acceptMessagePlan`, `mergePlans` — pure rules for chat plans (real future date, in horizon, not friend-paid, cites real messages) and calendar/chat dedupe
+- `server/src/domain/recurrence.ts` — `detectPatterns`, `addDays`, `daysBetween` — pure cadence detection, rolls next date past `asOf`
+- `server/src/domain/serpPrice.ts` — `eventsFromSerp`, `placesFromSerp`, `parseDollarRange`, `resolveMonthDay`, `PRICE_LEVEL_BANDS` — pure SerpAPI response extraction
+- `server/src/sources/serpapi.ts` — `SerpApiClient`, `replayClient`, `liveClient`, `cachedSerp`, `SerpReplayMiss`, `SerpBudgetExceeded`, `fixtureName` — the one SerpAPI adapter; `TODO(stub): serpapi-live` (untested without a key, H13)
+- `server/src/llm/prompts/planFinder.ts`, `server/src/llm/schemas/planFinder.ts` — `planFinder` prompt: concrete future plans from a chat thread
+- `server/src/config.ts` — `getAsOf()` (the demo clock, `AS_OF_DATE`), `SERPAPI_*`, `HOME_CITY`, `PAYBACK_*`
+- `server/test/fixtures/serpapi/<engine>__<slug(query)>.json` — hand-written SerpAPI replay fixtures (not captured responses); `server/test/fixtures/llm/planFinder/<asOf>__<thread>.json`
+- `seed/scenario.json` — `plans` (future calendar entries) and `planMessages` (chat mentions of future plans); `x-alex-hamilton` is the demo debt (Alex covered $540, Me owes Alex $94.66)
+
 ## API
 - `server/src/api/server.ts` — `startServer(db, {port?, llmMode?})` — listen on a migrated Db
 - `server/src/db/queries.ts` — `listPersons`, `listLedgerEntries`, `getFriendSummaries`, `getFriendDetail`, `listOpenReviewItems` — typed reads mapped to shared DTOs

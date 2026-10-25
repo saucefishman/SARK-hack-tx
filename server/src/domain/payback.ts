@@ -49,7 +49,35 @@ export interface PaybackResult {
   needsTransfer: boolean;
 }
 
-export const toleranceCents = (debtCents: number, c: Pick<PaybackConfig, "tolerancePct" | "toleranceMinCents">) =>
+/**
+ * How much to believe an option will actually happen (DESIGN §15.3). Planned events and SerpAPI ideas share the top tier: the
+ * product favours new things to do together, and a shaky SerpAPI *price* is already penalised by the separate confidence term,
+ * so it must not be penalised twice here. Recurring outings are the fallback: the user already knows about them.
+ */
+export const TRUST = {
+  planned: 1,
+  discovered: 0.9,
+  /** Multiplied by the pattern's regularity (0..1). */
+  recurringMax: 0.5,
+} as const;
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * A discovered idea must be new to the pair: not a place or activity they already do (a past-event key) or already have planned.
+ * Substring match in either direction on normalised text; keys under 3 characters never match, to avoid accidents.
+ */
+export function isNovel(title: string, knownKeys: Iterable<string>): boolean {
+  const t = norm(title);
+  for (const raw of knownKeys) {
+    const k = norm(raw);
+    if (k.length < 3 || t.length < 3) continue;
+    if (t.includes(k) || k.includes(t)) return false;
+  }
+  return true;
+}
+
+export const toleranceCents =(debtCents: number, c: Pick<PaybackConfig, "tolerancePct" | "toleranceMinCents">) =>
   Math.max(c.toleranceMinCents, Math.round((debtCents * c.tolerancePct) / 100));
 
 const W = { closeness: 0.5, trust: 0.25, soon: 0.15, confidence: 0.1, sizePenalty: 0.03 };

@@ -1,12 +1,12 @@
 // Payback stage (DESIGN §15/§16): for each friend the user owes, find ways to settle by spending on them.
 //   P0 debts       ledger -> friends with balance < 0 (assumed/"possible" rows never count)
-//   P1 plans       future calendar entries with the friend            -> future_event + planned candidates
-//   P2 patterns    past relevant events with the friend, recurring    -> recurring_pattern + recurring candidates
-//   P3 discover    SerpAPI search for new ideas                        -> price_quote + discovered candidates
+//   P1 plans       future events from the calendar AND from chat (planFinder), deduped -> future_event + planned candidates
+//   P3 discover    SerpAPI search for new ideas, novel to the pair                       -> price_quote + discovered candidates
+//   P2 patterns    past relevant events with the friend, recurring (the fallback)         -> recurring_pattern + recurring candidates
 //   P4 price       every option becomes the FRIEND's share via splitEvent (hypothetical "user paid" event)
-//   P5 solve       domain/payback.ts picks bundles                     -> payback_suggestion
-// Reads the ledger, writes only its own tables, so it can never change a balance. No LLM calls in this build.
-// TODO(stub): planFinder - plans found in MESSAGES ("tacos Friday") need a Muse Spark prompt; only calendar plans exist.
+//   P5 solve       domain/payback.ts picks bundles                                        -> payback_suggestion
+// Priority (DESIGN §15.3): planned and discovered share the top tier (new things to do together); recurring is the fallback.
+// Reads the ledger, writes only its own tables, so it can never change a balance. The only LLM call is planFinder (cached, replayable).
 // TODO(stub): interests-llm - new-idea queries come from merchant categories, not from Muse Spark reading the pair's messages.
 // TODO(stub): activityLabel - activity keys are merchant names or normalized descriptions, not LLM labels.
 import { USER_ID, type PaybackItem, type PaybackResponse } from "@sark/shared";
@@ -15,16 +15,23 @@ import type { Db } from "../db/pool";
 import { friendTotals } from "../domain/balance";
 import { medianCents } from "../domain/estimateBaseCost";
 import { stableId } from "../domain/ids";
-import { solvePayback, type PaybackConfig, type PaybackOption } from "../domain/payback";
-import { detectPatterns, type Occurrence } from "../domain/recurrence";
+import { acceptMessagePlan, mergePlans, type AcceptedPlan, type PlanSource } from "../domain/plans";
+import { isNovel, solvePayback, TRUST, type PaybackConfig, type PaybackOption } from "../domain/payback";
+import { addDays, detectPatterns, type Occurrence } from "../domain/recurrence";
 import { eventsFromSerp, placesFromSerp, resolveMonthDay, type PricedPlace } from "../domain/serpPrice";
 import { splitEvent } from "../domain/split";
 import { cachedSerp, defaultSerpClient, SerpBudgetExceeded, SerpReplayMiss, type SerpApiClient, type SerpEngine } from "../sources/serpapi";
 import { listLedgerEntries } from "../db/queries";
+import { generateStructured, planFinder, type GenerateOptions, type PlanFinderInput } from "../llm";
+import { mapLimit } from "../util/mapLimit";
 
 export interface PaybackCounts {
   debtors: number;
+  /** Calendar plans + chat plans that became planned candidates' source rows (after dedupe). */
   plans: number;
+  /** planFinder calls (one per recent thread a debtor is in) and plans they proposed that code rejected. */
+  planCalls: number;
+  planRejected: number;
   patterns: number;
   discovered: number;
   candidates: number;
@@ -37,8 +44,18 @@ export interface PaybackRunOptions {
   asOf?: string;
   /** Default: replay/live by SERPAPI_MODE. Tests inject. */
   serp?: SerpApiClient;
+  /** planFinder's LLM mode and client overrides, as for the other LLM stages. */
+  llmMode?: GenerateOptions["mode"];
+  llm?: GenerateOptions;
   log?: (line: string) => void;
 }
+
+/** Chat plans are looked for in messages from this many days before asOf. */
+const PLAN_WINDOW_DAYS = 30;
+/** Most SerpAPI ideas kept per friend, interleaved across queries so one query can't crowd out the rest. */
+const MAX_DISCOVERED = 6;
+/** Results taken from each SerpAPI query before the novelty filter. */
+const PER_QUERY = 3;
 
 const STOP = new Set(["a", "an", "the", "at", "of", "for", "with", "and", "on", "in", "to", "my", "our"]);
 const SHOW = /entertainment|concert|music|show|comedy|theat|event/i;
@@ -121,11 +138,84 @@ interface Candidate {
 
 const candId = (friendId: string, kind: string, ref: string) => stableId("pc", friendId, kind, ref);
 
+interface ChatPlan extends AcceptedPlan {
+  ref: string;
+  threadId: string;
+  /** Snippet of the first message that established the plan. */
+  snippet: string;
+}
+
+/**
+ * planFinder over recent chats (DESIGN §15.3 A). One LLM call per thread that has a message in the window AND a debtor as a
+ * sender (no debtor, no payback, no call). The model proposes; `acceptMessagePlan` decides (future date, in horizon, not paid by
+ * a friend, cites real messages). Returns accepted plans plus how many calls ran and plans were rejected.
+ */
+async function findChatPlans(
+  db: Db,
+  o: { asOf: string; debtorIds: Set<string>; gen: GenerateOptions; concurrency: number },
+): Promise<{ plans: ChatPlan[]; calls: number; rejected: number }> {
+  if (!o.debtorIds.size) return { plans: [], calls: 0, rejected: 0 };
+  const from = addDays(o.asOf, -PLAN_WINDOW_DAYS);
+  const { rows: msgs } = await db.query<{ id: string; thread_id: string; sender_id: string | null; d: string; t: string; body: string }>(
+    `SELECT id, thread_id, sender_id, to_char(sent_at AT TIME ZONE 'UTC','YYYY-MM-DD') AS d, to_char(sent_at AT TIME ZONE 'UTC','HH24:MI') AS t, body
+     FROM message WHERE to_char(sent_at AT TIME ZONE 'UTC','YYYY-MM-DD') BETWEEN $1 AND $2 ORDER BY thread_id, sent_at, id`,
+    [from, o.asOf],
+  );
+  const { rows: persons } = await db.query<{ id: string; display_name: string }>("SELECT id, display_name FROM person ORDER BY id");
+  const nameOf = new Map(persons.map((p) => [p.id, p.display_name]));
+  const known = new Set(persons.map((p) => p.id));
+  const threads = new Map<string, typeof msgs>();
+  for (const m of msgs) (threads.get(m.thread_id) ?? threads.set(m.thread_id, []).get(m.thread_id)!).push(m);
+
+  const jobs: { input: PlanFinderInput; ids: Set<string>; bodies: Map<string, string> }[] = [];
+  for (const [threadId, all] of threads) {
+    const senders = [...new Set([USER_ID, ...all.map((m) => m.sender_id).filter((x): x is string => !!x)])].sort();
+    if (!senders.some((id) => o.debtorIds.has(id))) continue;
+    jobs.push({
+      ids: new Set(all.map((m) => m.id)),
+      bodies: new Map(all.map((m) => [m.id, m.body])),
+      input: {
+        asOf: o.asOf,
+        threadId,
+        threadTitle: `Chat with ${senders.filter((id) => id !== USER_ID).map((id) => nameOf.get(id) ?? id).join(", ") || "yourself"}`,
+        people: senders.map((id) => ({ id, name: nameOf.get(id) ?? id })),
+        messages: all.map((m) => ({
+          id: m.id, senderId: m.sender_id ?? "unknown", date: m.d, time: m.t, text: m.body,
+          weekday: new Date(`${m.d}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }),
+        })),
+      },
+    });
+  }
+  const outs = await mapLimit(jobs, o.concurrency, (j) => generateStructured(db, planFinder, j.input, o.gen));
+  const plans: ChatPlan[] = [];
+  let rejected = 0;
+  jobs.forEach((j, k) => {
+    for (const raw of outs[k]!.plans) {
+      const r = acceptMessagePlan(raw, { asOf: o.asOf, knownIds: known, messageIds: j.ids });
+      if (!r.ok) {
+        rejected++;
+        continue;
+      }
+      const body = j.bodies.get(r.plan.sourceMessageIds[0]!) ?? "";
+      plans.push({
+        ...r.plan,
+        ref: `chat:${j.input.threadId}:${r.plan.date}:${stableId("pl", r.plan.description)}`,
+        threadId: j.input.threadId,
+        snippet: body.length > 100 ? `${body.slice(0, 99)}…` : body,
+      });
+    }
+  });
+  return { plans, calls: jobs.length, rejected };
+}
+
 export async function runPayback(db: Db, opts: PaybackRunOptions = {}): Promise<PaybackCounts> {
   const cfg = getConfig();
   const asOf = opts.asOf ?? getAsOf(cfg);
   const log = opts.log ?? (() => {});
-  const counts: PaybackCounts = { debtors: 0, plans: 0, patterns: 0, discovered: 0, candidates: 0, suggestions: 0, serpCalls: 0, serpMisses: 0 };
+  const counts: PaybackCounts = {
+    debtors: 0, plans: 0, planCalls: 0, planRejected: 0, patterns: 0, discovered: 0, candidates: 0, suggestions: 0, serpCalls: 0, serpMisses: 0,
+  };
+  const gen: GenerateOptions = { ...opts.llm, ...(opts.llmMode ? { mode: opts.llmMode } : {}) };
   const serp = cachedSerp(db, opts.serp ?? defaultSerpClient(), { day: asOf, location: cfg.HOME_CITY, maxCalls: cfg.SERPAPI_MAX_CALLS });
 
   await db.exec("DELETE FROM payback_suggestion; DELETE FROM payback_candidate; DELETE FROM recurring_pattern; DELETE FROM future_event;");
@@ -134,46 +224,69 @@ export async function runPayback(db: Db, opts: PaybackRunOptions = {}): Promise<
   const ledger = await listLedgerEntries(db);
   const past = await loadPastEvents(db);
 
+  // P0: only debts the user owes
+  const debtorIds = new Set(friends.filter((f) => friendTotals(f.id, ledger).balanceCents < 0).map((f) => f.id));
+  const chat = await findChatPlans(db, { asOf, debtorIds, gen, concurrency: cfg.LLM_CONCURRENCY });
+  counts.planCalls = chat.calls;
+  counts.planRejected = chat.rejected;
+
   for (const f of friends) {
-    if (friendTotals(f.id, ledger).balanceCents >= 0) continue; // P0: only debts the user owes
+    if (!debtorIds.has(f.id)) continue;
     counts.debtors++;
     const cands: Candidate[] = [];
     const withFriend = past.filter((e) => e.attendeeIds.includes(f.id) && e.attendeeIds.includes(USER_ID));
 
-    // ---- P1 plans: calendar entries after asOf that include the friend
+    // ---- P1 plans: calendar entries AND chat plans after asOf that include the friend, merged (same day + a friend in common = one plan)
     const { rows: cal } = await db.query<{ id: string; title: string; description: string | null; d: string; t: string; attendee_ids: string[] }>(
       `SELECT id, title, description, to_char(start_at AT TIME ZONE 'UTC','YYYY-MM-DD') AS d, to_char(start_at AT TIME ZONE 'UTC','HH24:MI') AS t, attendee_ids
        FROM calendar_event WHERE $1 = ANY(attendee_ids) AND to_char(start_at AT TIME ZONE 'UTC','YYYY-MM-DD') > $2 ORDER BY start_at, id`,
       [f.id, asOf],
     );
     const known = past.map((e) => e.merchant).filter((m): m is string => !!m);
-    for (const c of cal) {
-      const headcount = Math.max(2, c.attendee_ids.length);
-      const stated = STATED_PER_PERSON.exec(`${c.title} ${c.description ?? ""}`);
-      const key = activityKey(null, c.title, known);
+    const statedCents = (text: string) => {
+      const m = STATED_PER_PERSON.exec(text);
+      return m ? Math.round(Number(m[1]) * 100) : null;
+    };
+    const sources: PlanSource[] = [
+      ...cal.map((c): PlanSource => ({
+        ref: c.id, source: "calendar", title: c.title, date: c.d, time: c.t, peopleIds: c.attendee_ids,
+        statedPerPersonCents: statedCents(`${c.title} ${c.description ?? ""}`),
+        evidence: `On your calendar with ${f.display_name}, ${dayName(c.d)}.`,
+      })),
+      ...chat.plans
+        .filter((p) => p.peopleIds.includes(f.id))
+        .map((p): PlanSource => ({
+          ref: p.ref, source: "message", title: p.description, date: p.date, time: p.time, peopleIds: p.peopleIds,
+          statedPerPersonCents: p.perPersonCents,
+          evidence: `Mentioned in your chat with ${f.display_name} (“${p.snippet}”).`,
+        })),
+    ];
+    for (const plan of mergePlans(sources)) {
+      const headcount = Math.max(2, plan.peopleIds.length);
+      const key = activityKey(null, plan.title, known);
       const hist = past.filter((e) => e.key === key && e.perPersonCents).map((e) => e.perPersonCents!);
       let lo: number, hi: number, basis: Candidate["basis"], conf: number, why: string;
-      if (stated) {
-        lo = hi = Math.round(Number(stated[1]) * 100);
+      if (plan.statedPerPersonCents !== null) {
+        lo = hi = plan.statedPerPersonCents;
         basis = "confirmed";
         conf = 1;
-        why = `On your calendar with ${f.display_name}, ${dayName(c.d)}; the entry says ${money(lo)} per person.`;
+        why = `${plan.evidence} The listed price is ${money(lo)} per person.`;
       } else if (hist.length) {
         lo = Math.min(...hist);
         hi = Math.max(...hist);
         basis = "estimated";
         conf = 0.7;
-        why = `On your calendar with ${f.display_name}, ${dayName(c.d)}. No price listed; your ${hist.length} past outing${hist.length > 1 ? "s" : ""} there cost ${range(lo, hi)} per person (median ${money(medianCents(hist))}).`;
+        why = `${plan.evidence} No price listed; your ${hist.length} past outing${hist.length > 1 ? "s" : ""} there cost ${range(lo, hi)} per person (median ${money(medianCents(hist))}).`;
       } else continue; // no price anywhere: nothing honest to suggest
       await db.query(
         `INSERT INTO future_event (id, friend_ids, date, time, description, source, source_refs, headcount, stated_per_person_cents)
-         VALUES ($1,$2,$3,$4,$5,'calendar',$6,$7,$8)`,
-        [stableId("fe", c.id), [f.id], c.d, c.t, c.title, [c.id], headcount, stated ? lo : null],
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [stableId("fe", f.id, plan.ref), [f.id], plan.date, plan.time, plan.title, plan.source, [plan.ref], headcount, plan.statedPerPersonCents],
       );
       counts.plans++;
       cands.push({
-        id: candId(f.id, "planned", c.id), friendId: f.id, kind: "planned", refId: c.id, title: c.title, date: c.d, headcount,
-        lowCents: friendShareCents(lo, headcount, f.id), highCents: friendShareCents(hi, headcount, f.id), basis, confidence: conf, trust: 1,
+        id: candId(f.id, "planned", plan.ref), friendId: f.id, kind: "planned", refId: plan.ref, title: plan.title, date: plan.date, headcount,
+        lowCents: friendShareCents(lo, headcount, f.id), highCents: friendShareCents(hi, headcount, f.id), basis, confidence: conf, trust: TRUST.planned,
         activityKey: key, url: null, evidence: why,
       });
     }
@@ -197,8 +310,8 @@ export async function runPayback(db: Db, opts: PaybackRunOptions = {}): Promise<
       cands.push({
         id: candId(f.id, "recurring", p.key), friendId: f.id, kind: "recurring", refId: p.key, title: last.description, date: p.nextDate, headcount: 2,
         lowCents: friendShareCents(p.perPersonLowCents, 2, f.id), highCents: friendShareCents(p.perPersonHighCents, 2, f.id), basis: "estimated",
-        confidence: 0.7, trust: Math.round(0.7 * p.regularity * 1000) / 1000, activityKey: p.key, url: null,
-        evidence: `You and ${f.display_name} have done this ${p.occurrences} times (${members.map((m) => shortDay(m.date)).join(", ")}), about every ${Math.round(p.medianGapDays)} days. Cost per person ${range(p.perPersonLowCents, p.perPersonHighCents)} each time.`,
+        confidence: 0.7, trust: Math.round(TRUST.recurringMax * p.regularity * 1000) / 1000, activityKey: p.key, url: null,
+        evidence: `A tried-and-true one: you and ${f.display_name} have done this ${p.occurrences} times (${members.map((m) => shortDay(m.date)).join(", ")}), about every ${Math.round(p.medianGapDays)} days. Cost per person ${range(p.perPersonLowCents, p.perPersonHighCents)} each time.`,
       });
     }
 
@@ -208,28 +321,40 @@ export async function runPayback(db: Db, opts: PaybackRunOptions = {}): Promise<
       ...cats.map((c) => (SHOW.test(c) ? { engine: "google_events" as const, q: `${c} events in ${cfg.HOME_CITY}` } : { engine: "google_maps" as const, q: `${c} in ${cfg.HOME_CITY}` })),
       { engine: "google_events", q: `events in ${cfg.HOME_CITY}` },
     ];
+    // Novelty: an idea must be new to the pair, so drop anything they already do or already have planned.
+    const seenKeys = [...withFriend.map((e) => e.key), ...cands.flatMap((c) => [c.activityKey ?? "", c.title])];
+    const perQuery: { engine: SerpEngine; q: string; place: PricedPlace; date: string | null }[][] = [];
     for (const { engine, q } of queries) {
       let places: PricedPlace[] = [];
       try {
         const resp = await serp.search(engine, q);
-        places = (engine === "google_events" ? eventsFromSerp(resp) : placesFromSerp(resp)).slice(0, 3);
+        places = engine === "google_events" ? eventsFromSerp(resp) : placesFromSerp(resp);
       } catch (e) {
         if (e instanceof SerpReplayMiss) counts.serpMisses++;
         else if (e instanceof SerpBudgetExceeded) log(`[payback] ${e.message}`);
         else throw e;
       }
-      for (const p of places) {
-        const date = resolveMonthDay(p.dateText, asOf);
-        if (p.dateText && !date) continue;
-        const ref = `${engine}|${q}|${p.title}`;
-        cands.push({
-          id: candId(f.id, "discovered", ref), friendId: f.id, kind: "discovered", refId: ref, title: p.title, date, headcount: 2,
-          lowCents: friendShareCents(p.lowCents, 2, f.id), highCents: friendShareCents(p.highCents, 2, f.id), basis: "estimated",
-          confidence: p.source === "stated" ? 0.6 : 0.3, trust: 0.4, activityKey: p.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(), url: p.url,
-          evidence: `${engine === "google_events" ? "Google Events" : "Google Maps"} result for "${q}" via SerpAPI. ${p.source === "stated" ? `Listed price ${range(p.lowCents, p.highCents)} per person.` : `Only a price level was listed; ${range(p.lowCents, p.highCents)} per person is an estimated band.`}`,
-        });
-        counts.discovered++;
-      }
+      perQuery.push(
+        places
+          .map((p) => ({ engine, q, place: p, date: resolveMonthDay(p.dateText, asOf) }))
+          .filter((r) => !(r.place.dateText && !r.date) && isNovel(r.place.title, seenKeys))
+          .slice(0, PER_QUERY), // filter first, so a place the pair already knows doesn't use up one of the slots
+      );
+    }
+    // Round-robin across queries (best of each first), capped per friend.
+    const picked: (typeof perQuery)[number] = [];
+    for (let rank = 0; picked.length < MAX_DISCOVERED && perQuery.some((r) => rank < r.length); rank++) {
+      for (const results of perQuery) if (rank < results.length && picked.length < MAX_DISCOVERED) picked.push(results[rank]!);
+    }
+    for (const { engine, q, place: p, date } of picked) {
+      const ref = `${engine}|${q}|${p.title}`;
+      cands.push({
+        id: candId(f.id, "discovered", ref), friendId: f.id, kind: "discovered", refId: ref, title: p.title, date, headcount: 2,
+        lowCents: friendShareCents(p.lowCents, 2, f.id), highCents: friendShareCents(p.highCents, 2, f.id), basis: "estimated",
+        confidence: p.source === "stated" ? 0.6 : 0.3, trust: TRUST.discovered, activityKey: p.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(), url: p.url,
+        evidence: `Something new to try together: ${engine === "google_events" ? "a Google Events" : "a Google Maps"} result for "${q}" via SerpAPI. ${p.source === "stated" ? `Listed price ${range(p.lowCents, p.highCents)} per person.` : `Only a price level was listed; ${range(p.lowCents, p.highCents)} per person is an estimated band.`}`,
+      });
+      counts.discovered++;
     }
 
     // ---- P4 persist (prices are already friend shares)
