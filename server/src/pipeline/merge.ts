@@ -185,7 +185,10 @@ export async function mergeEvents(
         if (typeof per === "number") return dollarsToCents(per) * attendees.length;
         return null;
       };
-      const friendPayers = g.payers.filter((p) => known.has(p.personId) && !(meTxns.length && p.personId === USER_ID));
+      // The user's own payments come from Nessie (or an explicit stated amount); never guess the user as payer.
+      const userGuessed = (p: (typeof g.payers)[number]) =>
+        p.personId === USER_ID && (meTxns.length > 0 || p.basis === "assumed" || p.amountDollars === undefined);
+      const friendPayers = g.payers.filter((p) => known.has(p.personId) && !userGuessed(p));
       for (const p of [...new Map(friendPayers.map((x) => [x.personId, x])).values()]) {
         let amountCents: number | null = null;
         if (p.amountDollars !== undefined) amountCents = dollarsToCents(p.amountDollars);
@@ -210,7 +213,9 @@ export async function mergeEvents(
       // Implicit trigger (6c): user attended, nobody is known to have paid -> assume the friend who most often paid before.
       if (!payers.length && attendees.length >= 2 && attendees.includes(USER_ID)) {
         const friends = attendees.filter((id) => id !== USER_ID);
-        const { rows } = await db.query<{ person_id: string }>(
+        // Prefer the friend who posted the price ("tix were $75 each"), else the most frequent past payer.
+        const pricePoster = msgs.find((m) => m.sender_id && friends.includes(m.sender_id) && /\$\d/.test(m.body))?.sender_id;
+        const { rows } = pricePoster ? { rows: [{ person_id: pricePoster }] } : await db.query<{ person_id: string }>(
           `SELECT ep.person_id FROM event_payer ep JOIN event e ON e.id = ep.event_id
            WHERE e.date < $1 AND ep.basis IN ('confirmed','estimated') AND ep.person_id = ANY($2)
            GROUP BY ep.person_id ORDER BY count(*) DESC, ep.person_id LIMIT 1`,
