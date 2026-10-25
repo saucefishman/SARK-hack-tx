@@ -2,31 +2,9 @@ import { Platform, Share } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import type { FriendSummary } from "@sark/shared";
+import { ledgerCsv } from "./ledger-presentation";
 export async function exportLedger(friends: FriendSummary[]) {
-  const cell = (value: string | number) =>
-    '"' +
-    String(
-      typeof value === "string" && /^[=+@-]/.test(value) ? "'" + value : value,
-    ).replace(/"/g, '""') +
-    '"';
-  const csv = [
-    [
-      "Name",
-      "Shared moments",
-      "You spent (USD)",
-      "Spent on you (USD)",
-      "Balance (USD)",
-    ],
-    ...friends.map((f) => [
-      f.name,
-      f.eventCount,
-      f.youSpentOnThemCents / 100,
-      f.spentOnYouCents / 100,
-      f.balanceCents / 100,
-    ]),
-  ]
-    .map((row) => row.map(cell).join(","))
-    .join("\r\n");
+  const csv = ledgerCsv(friends);
   if (Platform.OS === "web") {
     const url = URL.createObjectURL(
       new Blob([csv], { type: "text/csv;charset=utf-8" }),

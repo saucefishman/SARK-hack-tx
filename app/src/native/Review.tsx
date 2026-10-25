@@ -14,6 +14,7 @@ import type { ReviewItemDto } from "@sark/shared";
 import { useAnswerReview, useFriends, useReview } from "../api/hooks";
 import { EmptyState, ErrorState, Loading } from "../components/ui";
 import { reviewPresentation } from "../components/review-presentation";
+import { reviewAnswer, summarizeFriends } from "./ledger-presentation";
 import { AccountSheet } from "./AccountSheet";
 import {
   Action,
@@ -86,20 +87,10 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
       <View style={s.question}>
         <View style={{ flex: 1 }}>
           <Text style={s.eyebrow}>
-            {multiple ? "SHARED EXPENSE" : "PAYMENT DETAILS"}
+            {content.eyebrow}
           </Text>
-          <Text style={s.prompt}>
-            {item.kind === "attendees"
-              ? "Who joined you?"
-              : item.kind === "payer"
-                ? "Who covered this?"
-                : content.prompt}
-          </Text>
-          <Text style={s.hint}>
-            {multiple
-              ? "Select everyone who shared this expense."
-              : "Choose one person."}
-          </Text>
+          <Text style={s.prompt}>{content.prompt}</Text>
+          <Text style={s.hint}>{content.hint}</Text>
         </View>
         <Text
           accessibilityLiveRegion="polite"
@@ -171,7 +162,7 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
       <View style={s.actions}>
         <View style={{ flex: 1 }}>
           <Action
-            title="Not shared"
+            title={content.dismissLabel}
             secondary
             disabled={busy}
             onPress={() =>
@@ -186,9 +177,7 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
             onPress={() =>
               answer.mutate({
                 id: item.id,
-                body: multiple
-                  ? { personIds: selected }
-                  : { payerId: selected[0] },
+                body: reviewAnswer(item, selected),
               })
             }
           />
@@ -204,14 +193,7 @@ export default function Review() {
   const insets = useSafeAreaInsets();
   const [account, setAccount] = useState(false);
   const { width } = useWindowDimensions();
-  const owed = (friends.data ?? []).reduce(
-    (sum, f) => sum + Math.max(0, f.balanceCents),
-    0,
-  );
-  const owe = (friends.data ?? []).reduce(
-    (sum, f) => sum + Math.max(0, -f.balanceCents),
-    0,
-  );
+  const { owedCents: owed, owingCents: owe } = summarizeFriends(friends.data ?? []);
   if (query.isLoading) return <Loading label="Loading reviews…" />;
   if (query.isError)
     return (
@@ -275,6 +257,9 @@ export default function Review() {
         onClose={() => setAccount(false)}
         owed={owed}
         owe={owe}
+        available={friends.isSuccess}
+        failed={friends.isError}
+        onRetry={() => void friends.refetch()}
       />
     </View>
   );

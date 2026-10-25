@@ -28,6 +28,7 @@ import {
   nativeStyles,
   palette,
 } from "./kit";
+import { filterFriends, summarizeFriends } from "./ledger-presentation";
 import { exportLedger } from "./export-ledger";
 
 const filters = ["Everyone", "Owes you", "You owe", "Settled"];
@@ -44,18 +45,9 @@ export default function Overview() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const friends = query.data ?? [];
-  const owed = friends.reduce((sum, f) => sum + Math.max(0, f.balanceCents), 0);
-  const owe = friends.reduce((sum, f) => sum + Math.max(0, -f.balanceCents), 0);
-  const spent = friends.reduce((sum, f) => sum + f.youSpentOnThemCents, 0);
-  const received = friends.reduce((sum, f) => sum + f.spentOnYouCents, 0);
-  const shown = friends.filter(
-    (f) =>
-      f.name.toLowerCase().includes(search.trim().toLowerCase()) &&
-      (filter === 0 ||
-        (filter === 1 && f.balanceCents > 0) ||
-        (filter === 2 && f.balanceCents < 0) ||
-        (filter === 3 && f.balanceCents === 0)),
-  );
+  const { owedCents: owed, owingCents: owe, spentCents: spent, receivedCents: received } = summarizeFriends(friends);
+  const shown = filterFriends(friends, filter, search);
+  const currentFriend = friends.find(person => person.personId === friend?.personId) ?? friend;
   async function download() {
     setExporting(true);
     try {
@@ -271,30 +263,30 @@ export default function Overview() {
       <Sheet
         visible={detailsOpen}
         onClose={() => setDetailsOpen(false)}
-        label={friend ? `${friend.name} details` : "Friend details"}
+        label={currentFriend ? `${currentFriend.name} details` : "Friend details"}
       >
-        {friend && (
+        {currentFriend && (
           <Details
-            name={friend.name}
+            name={currentFriend.name}
             caption={
-              friend.balanceCents > 0
+              currentFriend.balanceCents > 0
                 ? "Owes you"
-                : friend.balanceCents < 0
+                : currentFriend.balanceCents < 0
                   ? "You owe"
                   : "Settled"
             }
-            balance={Math.abs(friend.balanceCents)}
+            balance={Math.abs(currentFriend.balanceCents)}
             rows={[
-              ["Shared moments", String(friend.eventCount)],
-              ["You spent", formatCents(friend.youSpentOnThemCents)],
-              ["Spent on you", formatCents(friend.spentOnYouCents)],
+              ["Shared moments", String(currentFriend.eventCount)],
+              ["You spent", formatCents(currentFriend.youSpentOnThemCents)],
+              ["Spent on you", formatCents(currentFriend.spentOnYouCents)],
             ]}
             onClose={() => setDetailsOpen(false)}
             onActivity={() => {
               setDetailsOpen(false);
               router.push({
                 pathname: "/friends/[id]",
-                params: { id: friend.personId },
+                params: { id: currentFriend.personId },
               });
             }}
           />

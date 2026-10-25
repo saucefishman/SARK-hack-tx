@@ -61,7 +61,7 @@ function EntryRow({ e }: { e: FriendEntry }) {
         <>
           <Pressable onPress={() => setOpen(!open)} accessibilityRole="button">
             <Text style={styles.link}>
-              {open ? "Hide" : "Show"} receipts ({e.evidence.length})
+              {open ? "Hide" : "Show"} evidence ({e.evidence.length})
             </Text>
           </Pressable>
           {open
