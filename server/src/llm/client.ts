@@ -1,12 +1,13 @@
-// The ONE Gemini client: cached, record/replay, retrying, zod-validated structured output.
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+// The ONE LLM client: cached, record/replay, retrying, zod-validated structured output.
+// Provider-neutral; live calls go through an LlmClient (default: Muse via llm/muse.ts).
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { getConfig, REPO_ROOT } from "../config";
 import type { Db } from "../db/pool";
-import { annotateRun, runTraced, wrapGenAI } from "../obs/tracing";
+import { annotateRun, runTraced } from "../obs/tracing";
+import { createMuseClient } from "./muse";
 import type { PromptDef } from "./types";
 
 export interface LlmClient {
@@ -19,7 +20,7 @@ export interface GenerateOptions {
   client?: LlmClient;
   /** Replay fixtures root (default server/test/fixtures/llm). */
   fixturesDir?: string;
-  /** Model name for the cache key (default config GEMINI_MODEL). */
+  /** Model name for the cache key (default config LLM_MODEL). */
   model?: string;
   /** Max attempts on 429/5xx (default 4). */
   maxTries?: number;
@@ -49,46 +50,22 @@ export function cacheKey(promptId: string, version: string, model: string, input
     .digest("hex");
 }
 
-/** thinkingConfig for GEMINI_THINKING ("default" = leave unset). Not part of the cache key. */
-export function thinkingConfig(level: "default" | "low" | "high" = getConfig().GEMINI_THINKING): { thinkingConfig?: { thinkingLevel: ThinkingLevel } } {
-  if (level === "default") return {};
-  return { thinkingConfig: { thinkingLevel: level === "high" ? ThinkingLevel.HIGH : ThinkingLevel.LOW } };
-}
-
-/** The generateContent config for a structured-JSON call. */
-export function generationConfig(jsonSchema: object, level?: "default" | "low" | "high") {
-  return { temperature: 0, responseMimeType: "application/json", responseJsonSchema: jsonSchema, ...thinkingConfig(level) };
-}
-
-export function createGeminiClient(apiKey?: string, model?: string, ai?: Pick<GoogleGenAI, "models">): LlmClient {
-  const cfg = getConfig();
-  const key = apiKey ?? cfg.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY missing (human task H3); use LLM_MODE=replay");
-  const sdk = ai ?? wrapGenAI(new GoogleGenAI({ apiKey: key }));
-  const m = model ?? cfg.GEMINI_MODEL;
-  return {
-    async generateJson(prompt, jsonSchema) {
-      const res = await sdk.models.generateContent({
-        model: m,
-        contents: prompt,
-        config: generationConfig(jsonSchema),
-      });
-      return res.text ?? "";
-    },
-  };
-}
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** 429 / 5xx / dropped connections retry with backoff; other HTTP errors, refusals and daily quotas fail fast. */
 export function retryable(e: unknown): boolean {
-  // A daily quota (free tier: 20 requests/day/model) won't recover within a backoff; fail fast.
-  if (/PerDay|per day/i.test(String((e as Error)?.message ?? ""))) return false;
+  const msg = String((e as Error)?.message ?? "");
+  // A daily quota won't recover within a backoff; fail fast.
+  if (/PerDay|per day|daily/i.test(msg)) return false;
   const status = (e as { status?: number; code?: number })?.status ?? (e as { code?: number })?.code;
   if (typeof status === "number") return status === 429 || status >= 500;
-  return /\b(429|5\d\d)\b|RESOURCE_EXHAUSTED|UNAVAILABLE/.test(String((e as Error)?.message ?? ""));
+  // fetch() network failures carry no status (undici: TypeError "fetch failed", cause ECONNRESET etc.).
+  const cause = String((e as { cause?: { code?: string } })?.cause?.code ?? "");
+  if (/fetch failed/i.test(msg) || /^(ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN|UND_ERR_)/.test(cause)) return true;
+  return /\b(429|5\d\d)\b|RESOURCE_EXHAUSTED|UNAVAILABLE|rate_limit/i.test(msg);
 }
 
-/** Gemini sometimes emits null for absent optionals; zod .optional() wants undefined. */
+/** Models sometimes emit null for absent optionals; zod .optional() wants undefined. */
 export function stripNulls(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(stripNulls);
   if (v && typeof v === "object") {
@@ -166,7 +143,7 @@ export async function generateStructured<I, O>(
   input: I,
   opts: GenerateOptions = {},
 ): Promise<O> {
-  const model = opts.model ?? getConfig().GEMINI_MODEL;
+  const model = opts.model ?? getConfig().LLM_MODEL;
   return traceLlmCall(prompt, input, model, () => generateStructuredInner(db, prompt, input, opts));
 }
 
@@ -178,7 +155,7 @@ async function generateStructuredInner<I, O>(
 ): Promise<{ value: O; source: LlmSource }> {
   const cfg = getConfig();
   const mode = opts.mode ?? cfg.LLM_MODE;
-  const model = opts.model ?? cfg.GEMINI_MODEL;
+  const model = opts.model ?? cfg.LLM_MODEL;
   const key = cacheKey(prompt.id, prompt.version, model, input);
 
   const hit = await cacheGet(db, key, prompt.schema);
@@ -205,7 +182,7 @@ async function generateStructuredInner<I, O>(
     return { value, source: "fixture" };
   }
 
-  const client = opts.client ?? createGeminiClient(undefined, model);
+  const client = opts.client ?? createMuseClient({ model });
   const jsonSchema = toJsonSchema(prompt.schema);
   const base = prompt.render(input);
 

@@ -1,10 +1,8 @@
-// Speed-ups: thinking level plumbing, mapLimit, and LLM-call skip rules.
-import { ThinkingLevel } from "@google/genai";
+// Speed-ups: reasoning level plumbing, mapLimit, and LLM-call skip rules.
 import { beforeAll, describe, expect, it } from "vitest";
 import { getConfig } from "../src/config";
 import type { Db } from "../src/db/pool";
-import { createGeminiClient, generationConfig, thinkingConfig } from "../src/llm/gemini";
-import { createGroundedClient, groundedConfig } from "../src/llm/webSearch";
+import { chatRequestBody, createMuseClient, createMuseGroundedClient, groundedRequestBody, reasoningParams } from "../src/llm/muse";
 import type { LlmClient } from "../src/llm";
 import { detectRepayments } from "../src/pipeline/attribution";
 import { mergeEvents, singleProtoGroup } from "../src/pipeline/merge";
@@ -45,26 +43,37 @@ describe("mapLimit", () => {
   });
 });
 
-describe("GEMINI_THINKING", () => {
-  it("config default is low; enum maps to SDK ThinkingLevel", () => {
-    expect(getConfig().GEMINI_THINKING).toBe("low");
+describe("LLM_REASONING", () => {
+  it("config default is low; maps to each API's reasoning parameter; none/max are rejected", () => {
+    expect(getConfig().LLM_REASONING).toBe("low");
     expect(getConfig().LLM_CONCURRENCY).toBe(4);
-    expect(thinkingConfig("low")).toEqual({ thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } });
-    expect(thinkingConfig("high")).toEqual({ thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } });
-    expect(thinkingConfig("default")).toEqual({});
-    expect(() => getConfig({ GEMINI_THINKING: "minimal" as never })).toThrow();
+    expect(reasoningParams("chat", "low")).toEqual({ reasoning_effort: "low" });
+    expect(reasoningParams("chat", "high")).toEqual({ reasoning_effort: "high" });
+    expect(reasoningParams("responses", "low")).toEqual({ reasoning: { effort: "low" } });
+    expect(reasoningParams("chat", "default")).toEqual({});
+    expect(reasoningParams("responses", "default")).toEqual({});
+    expect(() => getConfig({ LLM_REASONING: "none" as never })).toThrow(); // HTTP 400 on Muse Spark
+    expect(() => getConfig({ LLM_REASONING: "max" as never })).toThrow(); // not on contributor models
   });
-  it("reaches generateContent from both clients (and is omitted for default)", async () => {
-    const seen: any[] = [];
-    const ai = { models: { generateContent: async (req: any) => (seen.push(req.config), { text: "{}", candidates: [] }) } } as any;
-    await createGeminiClient("k", "m", ai).generateJson("p", { type: "object" });
-    await createGroundedClient("k", "m", ai).search("p");
-    expect(seen[0].thinkingConfig).toEqual({ thinkingLevel: "LOW" });
-    expect(seen[0].responseJsonSchema).toEqual({ type: "object" });
-    expect(seen[1].thinkingConfig).toEqual({ thinkingLevel: "LOW" });
-    expect(seen[1].tools).toEqual([{ googleSearch: {} }]);
-    expect(generationConfig({}, "default")).not.toHaveProperty("thinkingConfig");
-    expect(groundedConfig("default")).not.toHaveProperty("thinkingConfig");
+  it("reaches the request body from both clients (and is omitted for default)", async () => {
+    const seen: { url: string; body: any }[] = [];
+    const fetch = (async (url: string, init: RequestInit) => {
+      seen.push({ url, body: JSON.parse(String(init.body)) });
+      const res = url.endsWith("/responses")
+        ? { status: "completed", output: [] }
+        : { choices: [{ finish_reason: "stop", message: { content: "{}" } }] };
+      return new Response(JSON.stringify(res), { status: 200 });
+    }) as unknown as typeof globalThis.fetch;
+    await createMuseClient({ apiKey: "k", model: "m", baseUrl: "http://muse.test/v1", fetch }).generateJson("p", { type: "object" });
+    await createMuseGroundedClient({ apiKey: "k", model: "m", baseUrl: "http://muse.test/v1", fetch }).search("p");
+    expect(seen[0].url).toBe("http://muse.test/v1/chat/completions");
+    expect(seen[0].body.reasoning_effort).toBe("low");
+    expect(seen[0].body.response_format.json_schema.schema).toEqual({ type: "object" });
+    expect(seen[1].url).toBe("http://muse.test/v1/responses");
+    expect(seen[1].body.reasoning).toEqual({ effort: "low" });
+    expect(seen[1].body.tools).toEqual([{ type: "web_search" }]);
+    expect(chatRequestBody("p", {}, "m", "default")).not.toHaveProperty("reasoning_effort");
+    expect(groundedRequestBody("p", "m", "default")).not.toHaveProperty("reasoning");
   });
 });
 

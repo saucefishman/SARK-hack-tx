@@ -14,7 +14,7 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/llm/types.ts` — `PromptDef<I,O>` — prompt contract (id, version, schema, render, fixtureKey)
 
 ## Server infrastructure
-- `server/src/config.ts` — `getConfig()`, `REPO_ROOT` — the one env loader (zod, fail fast); incl. `GEMINI_THINKING`, `LLM_CONCURRENCY`, `EMBED_MODE`, `LANGSMITH_*`
+- `server/src/config.ts` — `getConfig()`, `REPO_ROOT` — the one env loader (zod, fail fast); incl. `META_API_KEY`, `LLM_MODEL`, `LLM_REASONING`, `LLM_CONCURRENCY`, `EMBED_MODE`, `LANGSMITH_*`
 - `server/src/util/mapLimit.ts` — `mapLimit(items, limit, fn)` — order-preserving bounded-concurrency map (parallel LLM calls)
 - `server/src/db/pool.ts` — `Db`, `createDb(url)`, `getDb()` — the one DB handle; `postgres://` → pg, `pglite://dir|memory` → embedded PGlite
 - `server/src/db/migrate.ts` — `migrate(db)` — applies `migrations/*.sql` in order
@@ -27,7 +27,7 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/domain/relevance.ts` — `isRelevant(...)`, `needsAttendeeReview(...)` — binary relevance rule (DESIGN §4)
 - `server/src/domain/split.ts` — `splitEvent({attendeeIds, payers, onlyTouching?})`, `allocate(total, weights)` — 6d equal split + multi-payer netting, largest-remainder cents
 - `server/src/domain/estimateBaseCost.ts` — `estimateBaseCost(event, deps)`, `medianCents`, `coldStartCost` (offline null fallback) — unknown-amount chain: stated → txn history median → RAG (`deps.rag`) → web cold start (`deps.coldStart`) → null
-- `server/src/domain/ragCost.ts` — `quotePerPersonCents`, `pickPerPersonCents` — pure math over RAG price quotes (same venue preferred, median)
+- `server/src/domain/ragCost.ts` — `quotePerPersonCents`, `pickPerPersonCents`, `quotesStatedInText`, `dollarAmountsIn`, `statedPerPerson` — pure math over RAG price quotes (same venue preferred, median); guard: quoted figures must appear in the message text
 
 ## Seed (Stream A)
 - `seed/scenario.json` — single source of truth for the demo data (22 events: all 12 BUILDPLAN §6 scenarios + RAG and web cost cases; `expected.costSource`)
@@ -47,7 +47,8 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/pipeline/ingest.ts` — `ingest(db, sources)`, `resolvePerson(db, kind, value)`, `normAlias(v)` — raw tables + alias resolution, idempotent
 
 ## LLM (Stream B)
-- `server/src/llm/gemini.ts` — `generateStructured(db, prompt, input, opts?)`, `LlmClient`, `createGeminiClient`, `cacheKey`, `canonicalJson`, `thinkingConfig`, `generationConfig` — the one Gemini client: cache → fixture (replay) → live with retry/repair
+- `server/src/llm/client.ts` — `generateStructured(db, prompt, input, opts?)`, `LlmClient`, `cacheKey`, `canonicalJson`, `retryable` — the one LLM client (provider-neutral): cache → fixture (replay) → live with retry/repair
+- `server/src/llm/muse.ts` — `createMuseClient`, `createMuseGroundedClient`, `MuseApiError`, `reasoningParams`, `chatRequestBody`, `groundedRequestBody`, `parseChatResponse`, `parseGroundedResponse` — the one generation provider adapter (Meta Model API / Muse over HTTP: Chat Completions + json_schema, Responses + web_search)
 - `server/src/llm/prompts/{messageDay,txnSocial,mergeDay,repayments}.ts` — PromptDefs + input types; `validateMergeGroups` (messageDay is v2: adds `perPersonAmountDollars`, `payers[]`)
 - `server/src/llm/prompts/util.ts` — `slug`, `ValidatedPromptDef`, `RULES`, `json`
 - `server/src/llm/schemas/*.ts` — zod output schemas
@@ -64,20 +65,20 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/pipeline/review.ts` — `applyReviewAnswer(db, id, body)`, `reprocessEvent(db, eventId)` — persist answer, re-run only the affected event
 - `server/src/sources/index.ts` — `sourcesFromDir(generatedDir)` — file sources over a seed `generated/` dir
 - `server/src/seed/write.ts` — `writeSeed(seedDir?)`, `loadScenario()` — shared by seed/demo/eval
-- `server/src/cli/{run-pipeline,eval,demo,llm-smoke}.ts` — `pnpm --filter server pipeline|eval|demo` and live Gemini smoke test (H3)
+- `server/src/cli/{run-pipeline,eval,demo,llm-smoke}.ts` — `pnpm --filter server pipeline|eval|demo` and live Muse smoke test (structured output + web search)
 
 ## Retrieval and cost baseline (DESIGN §11)
 - `server/migrations/002_message_vectors.sql` — `message.embedding_vec vector(768)` + HNSW cosine index (guarded), `message.embedding_model`, `embedding_cache`
-- `server/src/llm/embed.ts` — `Embedder`, `getEmbedder(mode)`, `localEmbedder()`, `geminiEmbedder()`, `embedTexts(db, texts, e)`, `EMBED_DIMS` — the one embedder (local deterministic stand-in or live Gemini), cached
+- `server/src/llm/embed.ts` — `Embedder`, `getEmbedder(mode)`, `localEmbedder()`, `geminiEmbedder()`, `embedTexts(db, texts, e)`, `EMBED_DIMS` — the one embedder (local deterministic stand-in or live Gemini — the only Gemini use left; Meta has no embedding model), cached
 - `server/src/pipeline/embed.ts` — `embedMessages(db, opts)`, `hasVectorColumn(db)` — pipeline stage `embed` (after ingest)
 - `server/src/pipeline/retrieval.ts` — `searchMessages(db, query, opts)`, `setSearchEmbedder`, `MessageHit`, `SearchOptions` — semantic message search (pgvector, JS cosine fallback)
 - `server/src/pipeline/cost.ts` — `ragHistoryCost`, `ragQuery`, `webColdStartCost` — RAG and web-search steps behind estimateBaseCost
-- `server/src/llm/webSearch.ts` — `generateGrounded`, `createGroundedClient`, `GroundedClient` — Google-Search-grounded Gemini with cache + replay fixtures
+- `server/src/llm/webSearch.ts` — `generateGrounded`, `GroundedClient` — web-search-grounded lookups (default client: Muse, `llm/muse.ts`) with cache + replay fixtures
 - `server/src/llm/prompts/{costFromSnippets,webCost}.ts`, `server/src/llm/schemas/{costFromSnippets,webCost}.ts` — RAG quote extraction and web price extraction
 
 ## Observability
 - `server/src/obs/tracing.ts` — `tracingEnabled`, `traced`, `runTraced`, `annotateRun`, `wrapGenAI`, `flushTraces`, `getTracingClient`, `setTracingClient` — the one LangSmith tracing module; no-op unless `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` set
-- `server/src/llm/gemini.ts` — `traceLlmCall`, `LlmSource` — `llm:<promptId>` chain runs recording source (cache|fixture|live)
+- `server/src/llm/client.ts` — `traceLlmCall`, `LlmSource` — `llm:<promptId>` chain runs recording source (cache|fixture|live); `muse:chat` / `muse:web_search` llm runs (with token usage) come from `llm/muse.ts`
 - `server/test/env.test.ts` — guard: every config env var is documented in `.env.example`
 
 ## API

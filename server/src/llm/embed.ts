@@ -1,5 +1,6 @@
 // The ONE embedder. Two implementations behind `Embedder`:
-//  - geminiEmbedder(): live Gemini embeddings (768 dims, L2-normalized, batched, retrying).
+//  - geminiEmbedder(): live Gemini embeddings (768 dims, L2-normalized, batched, retrying). The only Gemini use left:
+//    generation moved to Muse (llm/muse.ts), but Meta's Model API has no embedding model.
 //  - localEmbedder():  deterministic offline feature-hashing STAND-IN for replay/tests (not semantic).
 // embedTexts() adds a per-text cache in `embedding_cache`.
 import { GoogleGenAI } from "@google/genai";
@@ -7,7 +8,7 @@ import { createHash } from "node:crypto";
 import { getConfig } from "../config";
 import type { Db } from "../db/pool";
 import { runTraced } from "../obs/tracing";
-import { retryable } from "./gemini";
+import { retryable } from "./client";
 
 export const EMBED_DIMS = 768;
 const BATCH = 100;

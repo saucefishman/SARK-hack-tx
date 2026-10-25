@@ -1,15 +1,18 @@
-// Live smoke test: one tiny messageDay call. Needs GEMINI_API_KEY (human task H3).
+// Live smoke test against the Meta Model API (Muse): one tiny messageDay call (structured output) and one webCost
+// lookup (web search grounding + extraction). Needs META_API_KEY. Uses an in-memory DB, so nothing is cached for later.
 import { getConfig } from "../config";
 import { createDb } from "../db/pool";
 import { migrate } from "../db/migrate";
 import { flushTraces } from "../obs/tracing";
-import { generateStructured, messageDay } from "../llm";
+import { generateGrounded, generateStructured, messageDay, webCost } from "../llm";
 
 async function main() {
-  if (!getConfig({ LLM_MODE: "replay" }).GEMINI_API_KEY) {
-    console.log("H3 needed");
+  const cfg = getConfig({ LLM_MODE: "replay" });
+  if (!cfg.META_API_KEY) {
+    console.log("META_API_KEY needed");
     return;
   }
+  console.log(`model=${cfg.LLM_MODEL} reasoning=${cfg.LLM_REASONING}`);
   const db = createDb("pglite://memory");
   await migrate(db);
   const out = await generateStructured(
@@ -30,7 +33,9 @@ async function main() {
     },
     { mode: "live" },
   );
-  console.log(JSON.stringify(out, null, 2));
+  console.log("messageDay:", JSON.stringify(out, null, 2));
+  const web = await generateGrounded(db, webCost, { venue: "Kayaking at Lady Bird Lake", eventType: "kayak rental" }, { mode: "live" });
+  console.log("webCost:", JSON.stringify(web, null, 2));
   await flushTraces();
   await db.end();
 }

@@ -1,6 +1,6 @@
 // `pnpm eval` (BUILDPLAN Phase 7): run the pipeline in replay on a fresh seed, compare with ground truth
 // (attendee accuracy, payer accuracy, per-friend balance error). Exits 1 if any friend total differs (replay only).
-// `pnpm eval --llm live` runs real Gemini instead (needs GEMINI_API_KEY) and only reports.
+// `pnpm eval --llm live` runs the real Muse model instead (needs META_API_KEY) and only reports.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -78,5 +78,6 @@ if (bad && llmMode === "live") {
 } else if (bad) {
   console.error(`\neval FAILED: ${bad} friend(s) differ from truth`);
   process.exit(1);
+} else {
+  console.log("\neval OK: every friend total equals truth exactly");
 }
-console.log("\neval OK: every friend total equals truth exactly");

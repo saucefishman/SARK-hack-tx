@@ -12,10 +12,15 @@ const Env = z.object({
   NESSIE_API_KEY: z.string().optional(),
   NESSIE_BASE_URL: z.string().default("https://prod-api.nessieisreal.com"),
   NESSIE_SOURCE: z.enum(["file", "api"]).default("file"),
-  GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default("gemini-3.8-flash"),
-  GEMINI_THINKING: z.enum(["default", "low", "high"]).default("low"),
+  // Generation (structured output + web search) runs on Meta's Model API (Muse); see src/llm/muse.ts.
+  META_API_KEY: z.string().optional(),
+  META_BASE_URL: z.string().default("https://api.meta.ai/v1"),
+  LLM_MODEL: z.string().default("muse-spark-1.3-contributor"),
+  // Muse reasoning effort. "none" (rejected by Muse Spark) and "max" (not on contributor models) are left out on purpose.
+  LLM_REASONING: z.enum(["default", "minimal", "low", "medium", "high", "xhigh"]).default("low"),
   LLM_CONCURRENCY: z.coerce.number().int().min(1).default(4),
+  // Embeddings only (EMBED_MODE=live): Meta's Model API has no embedding model.
+  GEMINI_API_KEY: z.string().optional(),
   GEMINI_EMBED_MODEL: z.string().default("gemini-embedding-001"),
   EMBED_MODE: z.enum(["local", "live"]).default("local"),
   LLM_MODE: z.enum(["live", "replay"]).default("replay"),
@@ -49,8 +54,8 @@ export function getConfig(overrides: Partial<z.input<typeof Env>> = {}): Config 
     ...parsed.data,
     resolvePath: (p) => (path.isAbsolute(p) ? p : path.resolve(REPO_ROOT, p)),
   };
-  if (cfg.LLM_MODE === "live" && !cfg.GEMINI_API_KEY) {
-    throw new Error("LLM_MODE=live requires GEMINI_API_KEY (human task H3)");
+  if (cfg.LLM_MODE === "live" && !cfg.META_API_KEY) {
+    throw new Error("LLM_MODE=live requires META_API_KEY (Meta Model API key)");
   }
   if (cfg.EMBED_MODE === "live" && !cfg.GEMINI_API_KEY) {
     throw new Error("EMBED_MODE=live requires GEMINI_API_KEY (human task H3)");

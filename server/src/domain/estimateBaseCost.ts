@@ -1,5 +1,5 @@
 // Expected-cost chain (DESIGN 6c): message-stated -> history median -> RAG over past messages -> cold-start web search -> null.
-// Pure; deps injected. The real RAG / web steps live in pipeline/cost.ts (they need the DB and Gemini).
+// Pure; deps injected. The real RAG / web steps live in pipeline/cost.ts (they need the DB and the LLM).
 
 export interface ColdStartCost {
   (q: { merchant?: string | null; eventType?: string | null; description?: string | null }): Promise<{

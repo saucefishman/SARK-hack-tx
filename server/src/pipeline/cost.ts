@@ -1,11 +1,11 @@
 // Real implementations of the expected-cost steps behind estimateBaseCost (DESIGN 6c):
 //  - ragHistoryCost: semantic search over past messages -> costFromSnippets (LLM reports quoted prices) -> code takes the median
-//  - webColdStartCost: Google-Search-grounded Gemini (two calls, see llm/webSearch.ts) -> per-person dollars + source URL
+//  - webColdStartCost: web-search-grounded Muse (two calls, see llm/webSearch.ts) -> per-person dollars + source URL
 // Both are injected into BaseCostDeps (see dbBaseCostDeps in attribution.ts); the LLM never does arithmetic.
 import type { Db } from "../db/pool";
 import { dollarsToCents } from "../domain/money";
 import type { BaseCostEvent, ColdStartCost } from "../domain/estimateBaseCost";
-import { pickPerPersonCents } from "../domain/ragCost";
+import { pickPerPersonCents, quotesStatedInText } from "../domain/ragCost";
 import { costFromSnippets, generateGrounded, generateStructured, webCost, type GenerateOptions, type WebSearchOptions } from "../llm";
 import { searchMessages, type MessageSearch } from "./retrieval";
 
@@ -68,7 +68,8 @@ export async function ragHistoryCost(db: Db, event: BaseCostEvent, opts: RagOpti
     },
     opts.llm,
   );
-  const pick = pickPerPersonCents(out.quotes, new Set(hits.map((h) => h.messageId)));
+  const bodies = new Map(hits.map((h) => [h.messageId, h.body]));
+  const pick = pickPerPersonCents(quotesStatedInText(out.quotes, bodies), new Set(bodies.keys()));
   if (!pick) return null;
   const n = Math.max(1, event.headcount ?? 1);
   return {
