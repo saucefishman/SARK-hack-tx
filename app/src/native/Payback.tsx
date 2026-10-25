@@ -6,7 +6,7 @@ import { useDismissPayback, useFriends, usePayback } from '../api/hooks';
 import { EmptyState, ErrorState, Loading } from '../components/ui';
 import { formatCents, formatDate } from '../format';
 import { AccountSheet } from './AccountSheet';
-import { Action, Avatar, Blue, Header, Icon, NativeCanvas, Sheet, palette } from './kit';
+import { Action, Avatar, WarmSurface, Header, Icon, NativeCanvas, Sheet, palette } from './kit';
 import { summarizeFriends } from './ledger-presentation';
 import { priceRange, remainingBalance, sourceUrl } from './payback-presentation';
 
@@ -93,7 +93,7 @@ function FriendPlans({ id }: { id: string }) {
               <Text style={s.caption}>{item.basis === 'estimated' ? 'Estimated share' : 'Confirmed share'}</Text>
             </View>
             <Text style={s.evidence}>{item.evidence}</Text>
-            {url && <Pressable accessibilityRole="link" accessibilityLabel={`Open source for ${item.title}`} onPress={() => void openSource(url)} style={s.source}><Text style={s.sourceText}>View source</Text><Icon name="arrow" size={16} color={palette.blue} /></Pressable>}
+            {url && <Pressable accessibilityRole="link" accessibilityLabel={`Open source for ${item.title}`} onPress={() => void openSource(url)} style={s.source}><Text style={s.sourceText}>View source</Text><Icon name="arrow" size={16} color={palette.accent} /></Pressable>}
           </View>;
         })}
         <Text style={s.footnote}>Prices are {data.friend.name}’s share, not the entire bill. Estimates may change. Viewing a plan doesn’t book an outing or send money.</Text>
@@ -117,14 +117,14 @@ export default function Payback() {
   return <View style={s.screen}>
     <NativeCanvas>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }} refreshControl={<RefreshControl refreshing={friends.isRefetching || payback.isRefetching} onRefresh={() => { void friends.refetch(); if (current) void payback.refetch(); }} tintColor="#fff" />}>
-        <Blue>
+        <WarmSurface>
           <Header onAccount={() => setAccount(true)} />
           <View style={s.heading}>
             <Text style={s.title}>Pay them back.</Text>
             <Text style={s.subtitle}>Good company. A little more balance.</Text>
           </View>
           <View style={s.lip} />
-        </Blue>
+        </WarmSurface>
         <View style={s.content}>
           {friends.isLoading ? <Loading label="Loading your circle…" /> : friends.isError ? <ErrorState error={friends.error} onRetry={() => void friends.refetch()} /> : !current ? <View style={s.plan}><EmptyState title="You're all balanced" body="When you owe a friend, their payback ideas will appear here." /></View> : <>
             {debtors.length > 1 && <View style={{ gap: 10 }}>
@@ -146,42 +146,42 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
   heading: { paddingHorizontal: 24, paddingBottom: 28 },
   title: { fontFamily: 'Poppins', fontSize: 30, letterSpacing: -1, color: '#fff' },
-  subtitle: { fontFamily: 'Inter', fontSize: 12, color: '#dfebff', marginTop: 5 },
+  subtitle: { fontFamily: 'Inter', fontSize: 12, color: '#fae7e4', marginTop: 5 },
   lip: { height: 22, borderTopLeftRadius: 31, borderTopRightRadius: 31, backgroundColor: palette.bg },
   content: { paddingHorizontal: 20, gap: 18 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  friend: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 25, borderWidth: 1, borderColor: '#e2eaf6', backgroundColor: '#ffffffb3', paddingVertical: 8, paddingHorizontal: 12 },
-  friendOn: { borderColor: '#b6cff2', backgroundColor: '#e4eeff' },
-  friendName: { fontFamily: 'Poppins', fontSize: 12, color: '#3865a7' },
-  balanceCard: { backgroundColor: '#fff', borderRadius: 25, padding: 22, borderWidth: 1, borderColor: '#dfe8f7' },
+  friend: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 25, borderWidth: 1, borderColor: '#f3e7e5', backgroundColor: '#ffffffb3', paddingVertical: 8, paddingHorizontal: 12 },
+  friendOn: { borderColor: '#e8c6c0', backgroundColor: '#fbebe8' },
+  friendName: { fontFamily: 'Poppins', fontSize: 12, color: '#95554a' },
+  balanceCard: { backgroundColor: '#fff', borderRadius: 25, padding: 22, borderWidth: 1, borderColor: '#f3e5e3' },
   balancePerson: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   balanceName: { fontFamily: 'Poppins', fontSize: 18, lineHeight: 26, color: palette.ink },
-  balanceLabel: { fontFamily: 'Inter', fontSize: 12, lineHeight: 19, color: '#7b8fa9' },
-  debt: { fontFamily: 'InterSemiBold', fontSize: 42, lineHeight: 52, letterSpacing: -1.8, color: '#2d65b7', marginTop: 17 },
-  caption: { fontFamily: 'Inter', fontSize: 10, lineHeight: 17, color: '#8395ae' },
+  balanceLabel: { fontFamily: 'Inter', fontSize: 12, lineHeight: 19, color: '#a28782' },
+  debt: { fontFamily: 'InterSemiBold', fontSize: 42, lineHeight: 52, letterSpacing: -1.8, color: '#a15143', marginTop: 17 },
+  caption: { fontFamily: 'Inter', fontSize: 10, lineHeight: 17, color: '#a78e8a' },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 7 },
   sectionTitle: { flex: 1, fontFamily: 'Poppins', fontSize: 17, letterSpacing: -0.5, color: palette.ink },
-  counter: { fontFamily: 'InterMedium', fontSize: 10, color: '#8196b3' },
-  body: { fontFamily: 'Inter', fontSize: 11, lineHeight: 18, color: '#7b8fa9' },
-  plan: { padding: 18, backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#e7edf7' },
-  tag: { fontFamily: 'InterMedium', fontSize: 9, color: '#5481bd', backgroundColor: '#edf4ff', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12 },
-  planNumber: { fontFamily: 'Inter', fontSize: 11, color: '#bac9dc' },
-  planAmount: { fontFamily: 'InterSemiBold', fontSize: 28, letterSpacing: -1.1, color: '#233954', marginTop: 12, marginBottom: 3 },
+  counter: { fontFamily: 'InterMedium', fontSize: 10, color: '#ab8e89' },
+  body: { fontFamily: 'Inter', fontSize: 11, lineHeight: 18, color: '#a28782' },
+  plan: { padding: 18, backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#f4ebea' },
+  tag: { fontFamily: 'InterMedium', fontSize: 9, color: '#ac7065', backgroundColor: '#fcf2f0', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12 },
+  planNumber: { fontFamily: 'Inter', fontSize: 11, color: '#d7c3bf' },
+  planAmount: { fontFamily: 'InterSemiBold', fontSize: 28, letterSpacing: -1.1, color: '#4c302b', marginTop: 12, marginBottom: 3 },
   items: { marginVertical: 17, gap: 14 },
   item: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  step: { width: 27, height: 27, borderRadius: 10, backgroundColor: '#f0f5fd', alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontFamily: 'InterMedium', fontSize: 10, color: '#7393be' },
-  itemTitle: { fontFamily: 'Poppins', fontSize: 12, lineHeight: 19, color: '#364e6f' },
-  footnote: { fontFamily: 'Inter', fontSize: 10, lineHeight: 17, color: '#8b9db4' },
-  notice: { fontFamily: 'Inter', fontSize: 11, lineHeight: 18, color: '#3b76bd' },
+  step: { width: 27, height: 27, borderRadius: 10, backgroundColor: '#fbf3f2', alignItems: 'center', justifyContent: 'center' },
+  stepText: { fontFamily: 'InterMedium', fontSize: 10, color: '#b2877f' },
+  itemTitle: { fontFamily: 'Poppins', fontSize: 12, lineHeight: 19, color: '#66453f' },
+  footnote: { fontFamily: 'Inter', fontSize: 10, lineHeight: 17, color: '#ad9692' },
+  notice: { fontFamily: 'Inter', fontSize: 11, lineHeight: 18, color: '#a85d50' },
   error: { fontFamily: 'Inter', fontSize: 11, color: '#a35151', lineHeight: 18 },
-  sheetEyebrow: { fontFamily: 'InterMedium', fontSize: 9, letterSpacing: 1, color: '#7b97bc' },
+  sheetEyebrow: { fontFamily: 'InterMedium', fontSize: 9, letterSpacing: 1, color: '#b28c85' },
   sheetTitle: { fontFamily: 'Poppins', fontSize: 25, letterSpacing: -0.7, color: palette.ink },
-  summary: { borderRadius: 19, backgroundColor: '#e7effc', padding: 17 },
+  summary: { borderRadius: 19, backgroundColor: '#f9edea', padding: 17 },
   detail: { padding: 17, backgroundColor: '#fff', borderRadius: 19, borderWidth: 1, borderColor: palette.line },
-  detailTitle: { fontFamily: 'Poppins', fontSize: 16, lineHeight: 23, color: '#2d4668', marginTop: 9, marginBottom: 4 },
-  share: { fontFamily: 'InterSemiBold', fontSize: 18, color: '#3865a7' },
-  evidence: { fontFamily: 'Inter', fontSize: 10, lineHeight: 18, color: '#8496af' },
+  detailTitle: { fontFamily: 'Poppins', fontSize: 16, lineHeight: 23, color: '#5f3c36', marginTop: 9, marginBottom: 4 },
+  share: { fontFamily: 'InterSemiBold', fontSize: 18, color: '#95554a' },
+  evidence: { fontFamily: 'Inter', fontSize: 10, lineHeight: 18, color: '#a88f8b' },
   source: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', paddingVertical: 12 },
-  sourceText: { fontFamily: 'InterMedium', fontSize: 11, color: palette.blue },
+  sourceText: { fontFamily: 'InterMedium', fontSize: 11, color: palette.accent },
 });

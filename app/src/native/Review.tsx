@@ -21,7 +21,7 @@ import {
   Sheet,
   Avatar,
   NativeCanvas,
-  Blue,
+  WarmSurface,
   Header,
   Icon,
   palette,
@@ -98,8 +98,8 @@ function ReviewCard({ item }: { item: ReviewItemDto }) {
           style={[
             s.count,
             selected.length > 0 && {
-              color: "#3d76c5",
-              backgroundColor: "#e0edff",
+              color: "#af6153",
+              backgroundColor: "#fae8e5",
             },
           ]}
         >
@@ -195,7 +195,7 @@ export function ReviewSheet({ visible, onClose }: { visible: boolean; onClose: (
   return (
     <Sheet visible={visible} onClose={onClose} label="Review activity">
       <Text style={[s.title, { color: palette.ink, fontSize: 25 }]}>Review activity</Text>
-      <Text style={[s.subtitle, { color: "#7b8fa9", fontSize: 13, lineHeight: 20, marginBottom: 18 }]}>
+      <Text style={[s.subtitle, { color: "#a28782", fontSize: 13, lineHeight: 20, marginBottom: 18 }]}>
         {query.data?.length ?? 0} pending · A few details to keep your balance accurate.
       </Text>
       {query.isLoading ? <Loading label="Loading activity…" /> : query.isError ?
@@ -234,7 +234,7 @@ export default function Review() {
             />
           }
         >
-          <Blue>
+          <WarmSurface>
             <Header onAccount={() => setAccount(true)} />
             <View style={s.heading}>
               <View style={{ flex: 1 }}>
@@ -246,7 +246,7 @@ export default function Review() {
               <Text style={s.pending}>{query.data?.length ?? 0} pending</Text>
             </View>
             <View style={s.lip} />
-          </Blue>
+          </WarmSurface>
           <View
             style={[
               s.cards,
@@ -304,7 +304,7 @@ const s = StyleSheet.create({
     fontFamily: "Inter",
     fontSize: 11,
     lineHeight: 18,
-    color: "#d4e4fc",
+    color: "#f6deda",
     marginTop: 4,
   },
   pending: {
@@ -330,14 +330,14 @@ const s = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#e9eef7",
+    borderColor: "#f5edeb",
   },
   expense: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
     borderBottomWidth: 1,
-    borderColor: "#edf1f7",
+    borderColor: "#f5f0ef",
     paddingBottom: 12,
   },
   expenseTitle: {
@@ -347,11 +347,11 @@ const s = StyleSheet.create({
     letterSpacing: -0.3,
     color: palette.ink,
   },
-  date: { fontFamily: "Inter", fontSize: 12, color: "#8092ab", marginTop: 5 },
+  date: { fontFamily: "Inter", fontSize: 12, color: "#a48b87", marginTop: 5 },
   amount: {
     fontFamily: "InterSemiBold",
     fontSize: 18,
-    color: "#233954",
+    color: "#4c302b",
     letterSpacing: -0.5,
     paddingTop: 2,
   },
@@ -361,15 +361,15 @@ const s = StyleSheet.create({
     padding: 13,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#e7eefb",
-    backgroundColor: "#eff5ff",
+    borderColor: "#f8ecea",
+    backgroundColor: "#fcf3f2",
     marginTop: 13,
   },
   eyebrow: {
     fontFamily: "InterMedium",
     fontSize: 10,
     letterSpacing: 1.2,
-    color: "#7f9bc1",
+    color: "#b6908a",
     marginBottom: 5,
   },
   prompt: {
@@ -377,13 +377,13 @@ const s = StyleSheet.create({
     fontSize: 18,
     lineHeight: 25,
     letterSpacing: -0.35,
-    color: "#2d4668",
+    color: "#5f3c36",
   },
   hint: {
     fontFamily: "Inter",
     fontSize: 12,
     lineHeight: 18,
-    color: "#7389a7",
+    color: "#9f817b",
     marginTop: 4,
   },
   count: {
@@ -395,20 +395,20 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#fff",
     backgroundColor: "#ffffff88",
-    color: "#9aaec8",
+    color: "#c1a6a1",
   },
   noteToggle: {
     fontFamily: "Inter",
     fontSize: 13,
-    color: "#718bad",
+    color: "#a3817b",
     marginTop: 9,
   },
   note: {
     fontFamily: "Inter",
     fontSize: 12,
     lineHeight: 19,
-    color: "#8d9eb6",
-    backgroundColor: "#f5f8fc",
+    color: "#af9894",
+    backgroundColor: "#fbf7f6",
     padding: 9,
     borderRadius: 10,
     marginTop: 6,
@@ -430,21 +430,21 @@ const s = StyleSheet.create({
     gap: 7,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: "#e9eef6",
-    backgroundColor: "#f6f9fe",
+    borderColor: "#f4eceb",
+    backgroundColor: "#fdf8f7",
   },
-  optionOn: { borderColor: "#b0cbf0", backgroundColor: "#e4eeff" },
-  person: { flex: 1, fontFamily: "Poppins", fontSize: 13, color: "#3865a7" },
+  optionOn: { borderColor: "#e6c1ba", backgroundColor: "#fbebe8" },
+  person: { flex: 1, fontFamily: "Poppins", fontSize: 13, color: "#95554a" },
   check: {
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: "#cfdbeb",
+    borderColor: "#e7d6d3",
     borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
   },
-  checked: { backgroundColor: "#3a79d8", borderColor: "#3a79d8" },
+  checked: { backgroundColor: "#bf6353", borderColor: "#bf6353" },
   actions: { flexDirection: "row", gap: 12 },
   error: {
     fontFamily: "Inter",
