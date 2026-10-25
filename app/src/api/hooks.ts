@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReviewAnswerBody } from "@sark/shared";
-import { answerReview, getFriend, getFriends, getReview } from "./client";
+import { answerReview, getFriend, getFriends, getReview, getPayback, dismissPayback } from "./client";
 
 export const useFriends = () => useQuery({ queryKey: ["friends"], queryFn: getFriends });
 
@@ -20,7 +20,22 @@ export function useAnswerReview(onSaved?: () => Promise<void>) {
         qc.invalidateQueries({ queryKey: ["friends"] }),
         qc.invalidateQueries({ queryKey: ["friend"] }),
         qc.invalidateQueries({ queryKey: ["review"] }),
+        qc.invalidateQueries({ queryKey: ["payback"] }),
       ]);
+    },
+  });
+}
+
+export const usePayback = (id: string) =>
+  useQuery({ queryKey: ["payback", id], queryFn: () => getPayback(id), enabled: !!id });
+
+export function useDismissPayback(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: dismissPayback,
+    onSuccess: async (data) => {
+      qc.setQueryData(["payback", id], data);
+      await qc.invalidateQueries({ queryKey: ["friends"] });
     },
   });
 }

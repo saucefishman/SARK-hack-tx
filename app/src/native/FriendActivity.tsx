@@ -23,7 +23,7 @@ import {
   formatDate,
   formatDateTime,
 } from "../format";
-import { Avatar, Blue, Icon, Money, palette } from "./kit";
+import { Avatar, WarmSurface, Icon, Money, palette } from "./kit";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, space } from "../theme";
 
@@ -116,7 +116,7 @@ export default function FriendDetail() {
       }
     >
       <Stack.Screen options={{ headerShown: false }} />
-      <Blue
+      <WarmSurface
         style={{
           padding: 24,
           paddingTop: insets.top + 22,
@@ -154,7 +154,7 @@ export default function FriendDetail() {
               style={{
                 fontFamily: "Inter",
                 fontSize: 11,
-                color: "#d8e8ff",
+                color: "#f9e2de",
                 marginTop: 3,
               }}
             >
@@ -163,7 +163,7 @@ export default function FriendDetail() {
           </View>
         </View>
         <View style={{ marginTop: 25 }}>
-          <Text style={{ fontFamily: "Inter", fontSize: 12, color: "#d8e8ff" }}>
+          <Text style={{ fontFamily: "Inter", fontSize: 12, color: "#f9e2de" }}>
             {friend.balanceCents > 0
               ? "Owes you"
               : friend.balanceCents < 0
@@ -227,7 +227,7 @@ export default function FriendDetail() {
             </Text>
           </View>
         </View>
-      </Blue>
+      </WarmSurface>
       <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
         <Text
           style={{ fontFamily: "Poppins", fontSize: 23, color: palette.ink }}
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#e9eef7",
+    borderColor: "#f5edeb",
   },
   groupTitle: {
     fontSize: 16,

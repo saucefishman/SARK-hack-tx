@@ -31,11 +31,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCents } from "../format";
 
 export const palette = {
-  bg: "#f3f6fb",
-  ink: "#172336",
-  muted: "#91a2ba",
-  blue: "#3478db",
-  line: "#e7eef8",
+  bg: "#f9f4ef",
+  ink: "#382b28",
+  muted: "#a08b80",
+  accent: "#b94c43",
+  line: "#eee2d9",
 };
 export type NativeBlurTarget = RefObject<ComponentRef<typeof View> | null>;
 export const BlurTargetContext = createContext<
@@ -81,13 +81,12 @@ const art = [
   require("../../assets/avatars/1f428.png"),
   require("../../assets/avatars/1f427.png"),
 ];
-const backgrounds = ["#f5e9dc", "#eae5f5", "#e1ece6", "#dfeaf6"];
+const backgrounds = ["#f5e9dc", "#f2e9e8", "#e1ece6", "#f2e5e3"];
 export function Avatar({ name, size = 38 }: { name: string; size?: number }) {
   const known = ["Sam", "Jordan", "Alex", "Riley"].indexOf(name);
-  const index =
-    known < 0
-      ? Array.from(name).reduce((sum, c) => sum + c.charCodeAt(0), 0) % 4
-      : known;
+  const index = known < 0
+    ? Array.from(name).reduce((sum, c) => sum + c.charCodeAt(0), 0) % 4
+    : known;
   return (
     <View
       accessible={false}
@@ -127,6 +126,7 @@ export function Icon({
     people: "people-outline",
     grid: "account-balance-wallet",
     review: "fact-check",
+    payback: "swap-horiz",
     arrow: "arrow-forward",
     back: "arrow-back",
     search: "search",
@@ -156,7 +156,7 @@ export function Money({
     <Text>
       {value.slice(0, -3)}
       <Text
-        style={{ fontFamily: "Inter", color: light ? "#ffffffa6" : "#7e94b1" }}
+        style={{ fontFamily: "Inter", color: light ? "#ffffffa6" : "#a98b86" }}
       >
         {value.slice(-3)}
       </Text>
@@ -267,7 +267,7 @@ export function Selector({
               <Icon
                 name={option.icon}
                 size={21}
-                color={i === index ? "#326bc0" : "#899bb3"}
+                color={i === index ? "#a95749" : "#ac9490"}
               />
             )}
             <Text style={[k.selectorText, i === index && k.selectedText]}>
@@ -285,11 +285,13 @@ export function Action({
   onPress,
   disabled = false,
   secondary = false,
+  large = false,
 }: {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   secondary?: boolean;
+  large?: boolean;
 }) {
   return (
     <Pressable
@@ -298,6 +300,7 @@ export function Action({
       onPress={onPress}
       style={({ pressed }) => [
         k.action,
+        large && { minHeight: 48 },
         secondary && k.secondary,
         disabled && k.disabled,
         pressed && !disabled && { opacity: 0.8 },
@@ -306,8 +309,9 @@ export function Action({
       <Text
         style={[
           k.actionText,
-          secondary && { color: "#8b9eb8" },
-          disabled && { color: "#a5b5cb" },
+          large && { fontSize: 14 },
+          secondary && { color: "#b19792" },
+          disabled && { color: "#c5afab" },
         ]}
       >
         {title}
@@ -318,15 +322,18 @@ export function Action({
 export function Header({
   onAccount,
   light = true,
+  title,
 }: {
   onAccount: () => void;
   light?: boolean;
+  title?: string;
 }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[k.header, { paddingTop: insets.top + 25 }]}>
-      <Text style={[k.brand, !light && { color: palette.ink }]}>
-        Friend Ledger
+      <Text style={[k.brand, !light && { color: palette.ink }, title ? { fontSize: 32 } : undefined]}>
+        {title ?? 'Even Stevens'}
+        {!title && process.env.EXPO_PUBLIC_DEMO === "1" && <Text style={{ fontFamily: "Inter", fontSize: 9, color: light ? "#fae7e4" : palette.muted }}>  · Demo data</Text>}
       </Text>
       <Pressable
         accessibilityRole="button"
@@ -341,7 +348,7 @@ export function Header({
     </View>
   );
 }
-export function Blue({
+export function WarmSurface({
   children,
   style,
 }: {
@@ -350,7 +357,7 @@ export function Blue({
 }) {
   return (
     <LinearGradient
-      colors={["#2864d0", "#4388eb", "#88b5f4"]}
+      colors={["#a63f39", "#c96b57", "#dda187"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={style}
@@ -430,7 +437,7 @@ export function Sheet({
               onPress={onClose}
               style={k.close}
             >
-              <Icon name="close" size={20} color="#7d91ab" />
+              <Icon name="close" size={20} color="#a48984" />
             </Pressable>
             {children}
           </ScrollView>
@@ -465,12 +472,12 @@ export function Details({
           <Text style={k.personName}>{name}</Text>
         </View>
       </View>
-      <Blue style={k.balancePanel}>
+      <WarmSurface style={k.balancePanel}>
         <Text style={k.balanceCaption}>{caption}</Text>
         <Text style={k.balanceAmount}>
           <Money cents={balance} light />
         </Text>
-      </Blue>
+      </WarmSurface>
       <View style={k.detailRows}>
         {rows.map(([label, value]) => (
           <View key={label} style={k.detailRow}>
@@ -496,13 +503,13 @@ const k = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#ffffffdd",
-    backgroundColor: "#e6efff73",
+    backgroundColor: "#fbedea73",
     borderRadius: 30,
   },
   selector: { padding: 0 },
   navigation: {
     width: 290,
-    shadowColor: "#34547b",
+    shadowColor: "#70473f",
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 3,
@@ -527,31 +534,31 @@ const k = StyleSheet.create({
     gap: 7,
   },
   navButton: { minHeight: 46 },
-  selectorText: { fontFamily: "InterMedium", fontSize: 11, color: "#889ab4" },
-  selectedText: { color: "#326bc0" },
+  selectorText: { fontFamily: "InterMedium", fontSize: 11, color: "#ad948f" },
+  selectedText: { color: "#a95749" },
   badge: {
     fontFamily: "Inter",
     fontSize: 9,
-    color: "#5e82bc",
-    backgroundColor: "#6595ed1f",
+    color: "#ad776d",
+    backgroundColor: "#d7897b1f",
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 10,
   },
   action: {
     height: 42,
-    backgroundColor: palette.blue,
+    backgroundColor: palette.accent,
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
   },
   actionText: { fontFamily: "InterMedium", fontSize: 12, color: "#fff" },
   secondary: {
-    backgroundColor: "#eef3fa",
+    backgroundColor: "#f8f1f0",
     borderWidth: 1,
-    borderColor: "#e1eaf6",
+    borderColor: "#f3e7e4",
   },
-  disabled: { backgroundColor: "#eaf0f8" },
+  disabled: { backgroundColor: "#f6eeec" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -566,14 +573,14 @@ const k = StyleSheet.create({
     color: "#fff",
   },
   modal: { flex: 1, justifyContent: "flex-end", paddingHorizontal: 12 },
-  backdrop: { flex: 1, backgroundColor: "#13284670" },
+  backdrop: { flex: 1, backgroundColor: "#3e201b70" },
   sheet: {
     maxHeight: "88%",
     padding: 23,
     paddingTop: 12,
     marginBottom: 12,
     borderRadius: 30,
-    backgroundColor: "#f8fbff",
+    backgroundColor: "#fefaf9",
     borderWidth: 1,
     borderColor: "#ffffffdd",
   },
@@ -581,7 +588,7 @@ const k = StyleSheet.create({
     width: 31,
     height: 4,
     borderRadius: 5,
-    backgroundColor: "#c6d3e3",
+    backgroundColor: "#dececb",
     alignSelf: "center",
     marginBottom: 24,
   },
@@ -592,7 +599,7 @@ const k = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#e7eef7",
+    backgroundColor: "#f4ebea",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -600,7 +607,7 @@ const k = StyleSheet.create({
     fontFamily: "InterMedium",
     fontSize: 8,
     letterSpacing: 1.5,
-    color: "#91a4bd",
+    color: "#b69d98",
     marginBottom: 5,
   },
   personName: { fontFamily: "Poppins", fontSize: 22, color: palette.ink },
@@ -610,7 +617,7 @@ const k = StyleSheet.create({
     marginTop: 22,
     marginBottom: 14,
   },
-  balanceCaption: { fontFamily: "Inter", fontSize: 11, color: "#d8e8ff" },
+  balanceCaption: { fontFamily: "Inter", fontSize: 11, color: "#f9e2de" },
   balanceAmount: {
     fontFamily: "InterMedium",
     fontSize: 39,
