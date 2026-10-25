@@ -34,8 +34,8 @@ export default function FinanceTabs() {
               index={state.index}
               options={state.routes.map((route) => ({
                 key: route.key,
-                label: route.name === "payback" ? "Payback" : "Friends",
-                icon: route.name === "payback" ? "payback" : "people",
+                label: route.name === "events" ? "Events" : "Friends",
+                icon: route.name === "events" ? "events" : "people",
               }))}
               onSelect={(index) => {
                 const route = state.routes[index];
@@ -51,7 +51,7 @@ export default function FinanceTabs() {
         )}
       >
         <Tabs.Screen name="index" options={{ title: "Friends" }} />
-        <Tabs.Screen name="payback" options={{ title: "Payback" }} />
+        <Tabs.Screen name="events" options={{ title: "Events" }} />
       </Tabs>
     </BlurTargetContext.Provider>
   );

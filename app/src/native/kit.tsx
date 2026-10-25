@@ -127,6 +127,7 @@ export function Icon({
     grid: "account-balance-wallet",
     review: "fact-check",
     payback: "swap-horiz",
+    events: "event-note",
     arrow: "arrow-forward",
     back: "arrow-back",
     search: "search",
