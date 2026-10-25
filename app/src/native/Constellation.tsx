@@ -22,14 +22,19 @@ function useLoop(enabled: boolean, delay: number, duration: number) {
       return;
     }
     v.setValue(0);
-    let loop: Animated.CompositeAnimation | undefined;
-    const t = setTimeout(() => {
-      loop = Animated.loop(Animated.timing(v, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true }));
-      loop.start();
-    }, delay);
+    // Restart by hand rather than Animated.loop, which stops after one pass on web.
+    let alive = true;
+    const run = () => {
+      v.setValue(0);
+      Animated.timing(v, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true }).start(({ finished }) => {
+        if (alive && finished) run();
+      });
+    };
+    const t = setTimeout(run, delay);
     return () => {
+      alive = false;
       clearTimeout(t);
-      loop?.stop();
+      v.stopAnimation();
     };
   }, [enabled, delay, duration, v]);
   return v;

@@ -33,20 +33,23 @@ export default function Events() {
     setLinkError(false);
     try { await Linking.openURL(url); } catch { setLinkError(true); }
   }
+  // Scrolls with the list rather than staying pinned.
+  const header = <WarmSurface>
+    <Header title="Events" onAccount={() => setAccount(true)} />
+    <View style={s.lip} />
+  </WarmSurface>;
   return <View style={s.screen}>
     <NativeCanvas>
-      <WarmSurface>
-        <Header title="Events" onAccount={() => setAccount(true)} />
-        <View style={s.lip} />
-      </WarmSurface>
-      {feed.friends.isError ? <ErrorState error={feed.friends.error} onRetry={() => void feed.refresh()} /> :
+      {feed.friends.isError ? <>{header}<ErrorState error={feed.friends.error} onRetry={() => void feed.refresh()} /></> :
         <FlatList
           data={feed.loadingHistory ? [] : feed.events}
           keyExtractor={event => event.id}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 115 + insets.bottom }}
+          contentContainerStyle={{ paddingBottom: 115 + insets.bottom }}
           refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={() => void feed.refresh()} tintColor={palette.accent} colors={[palette.accent]} />}
           ListHeaderComponent={<View>
+            {header}
+            <View style={s.pad}>
             <View style={s.suggestion}>
               <View style={s.topLine}><Text style={s.turn}>{suggestion ? yourTurnLabel(suggestion.friend.name) : 'Your turn'}</Text><Icon name="events" size={20} color={palette.accent} /></View>
               {feed.loadingSuggestion || feed.loadingHistory ? <View style={{ minHeight: 90 }}><Loading label="Finding a new experience…" /></View> : suggestion ? <>
@@ -70,9 +73,10 @@ export default function Events() {
             </Pressable>
             <View style={s.sectionHeading}><Text style={s.sectionTitle}>Your shared experiences</Text>{!feed.loadingHistory && <Text style={s.count}>{feed.events.length}</Text>}</View>
             {!!feed.historyError && <View style={s.warning}><Text style={s.description}>Some shared activity couldn’t load. This list may be incomplete.</Text><Pressable accessibilityRole="button" onPress={() => void feed.refresh()}><Text style={s.retry}>Try again</Text></Pressable></View>}
+            </View>
           </View>}
-          ListEmptyComponent={feed.loadingHistory ? <View style={{ minHeight: 180 }}><Loading label="Gathering your shared experiences…" /></View> : <EmptyState title="Your memories start here" body="Shared experiences with your friends will appear here." />}
-          renderItem={({ item, index }) => <View>
+          ListEmptyComponent={<View style={s.pad}>{feed.loadingHistory ? <View style={{ minHeight: 180 }}><Loading label="Gathering your shared experiences…" /></View> : <EmptyState title="Your memories start here" body="Shared experiences with your friends will appear here." />}</View>}
+          renderItem={({ item, index }) => <View style={s.pad}>
             {(index === 0 || feed.events[index - 1].date.slice(0, 7) !== item.date.slice(0, 7)) && <Text style={s.month}>{monthLabel(item.date)}</Text>}
             <EventRow event={item} onPress={() => { setSelected(item); setDetailsOpen(true); }} />
           </View>}
@@ -85,6 +89,7 @@ export default function Events() {
 }
 
 const s = StyleSheet.create({
+  pad: { paddingHorizontal: 20 },
   screen: { flex: 1, backgroundColor: palette.bg },
   lip: { height: 23, borderTopLeftRadius: 31, borderTopRightRadius: 31, backgroundColor: palette.bg },
   suggestion: { backgroundColor: '#f5e7df', borderWidth: 1, borderColor: '#ecd8cd', borderRadius: 25, padding: 20, gap: 13 },
