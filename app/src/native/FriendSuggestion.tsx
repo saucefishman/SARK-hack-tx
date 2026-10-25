@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFriend } from '../api/hooks';
+import { useFriend, usePayback } from '../api/hooks';
 import { ErrorState, Loading } from '../components/ui';
 import { Action, Avatar, Icon, palette } from './kit';
-import { friendActivityIdeas } from './friend-activity-ideas';
+import { activityIdeaCopy, friendActivityIdeas } from './friend-activity-ideas';
 
 export function FriendSuggestion({ id, name, onActivity }: { id: string; name: string; onActivity: () => void }) {
   const query = useFriend(id);
+  const suggestions = usePayback(id);
   const [index, setIndex] = useState(0);
-  const ideas = friendActivityIdeas(query.data?.entries ?? [], id);
+  const ideas = friendActivityIdeas(query.data?.entries ?? [], id, suggestions.data?.suggestions.flatMap(plan => plan.items) ?? []);
   const idea = ideas[index % ideas.length];
+  const copy = activityIdeaCopy(idea.source);
   return <View style={s.content}>
     <View style={s.profile}>
       <Avatar name={name} size={60} />
@@ -18,19 +20,21 @@ export function FriendSuggestion({ id, name, onActivity }: { id: string; name: s
         <Text style={s.caption}>Make time for each other.</Text>
       </View>
     </View>
-    {query.isLoading ? <View style={s.loading}><Loading label="Finding something to do together…" /></View> : query.isError ?
+    {query.isLoading || suggestions.isLoading ? <View style={s.loading}><Loading label="Finding something to do together…" /></View> : query.isError ?
       <ErrorState error={query.error} onRetry={() => void query.refetch()} /> :
       <View style={s.idea}>
         <Text style={s.eyebrow}>SOMETHING TO DO TOGETHER</Text>
         <Text style={s.title}>{idea.title}</Text>
-        <Text style={s.description}>{idea.fromHistory
-          ? 'You’ve shared this before. Pick a day and make another memory of it.'
-          : `A little time to slow down and catch up with ${name}. Pick a favorite spot and a day that works for you both.`}</Text>
+        <Text style={s.description}>{copy.description}</Text>
         <View style={s.footer}>
-          <Text style={s.basis}>{idea.fromHistory ? 'Inspired by your shared activity' : 'A simple idea to get you started'}</Text>
+          <Text style={s.basis}>{copy.basis}</Text>
         </View>
       </View>}
-    {query.isSuccess && ideas.length > 1 && <Action title="Another idea" onPress={() => setIndex(value => value + 1)} />}
+    {suggestions.isError && query.isSuccess && <View style={{ gap: 8 }}>
+      <Text style={s.caption}>Couldn’t load upcoming suggestions. Showing ideas from your shared activity.</Text>
+      <Pressable accessibilityRole="button" onPress={() => void suggestions.refetch()}><Text style={s.activityText}>Retry suggestions</Text></Pressable>
+    </View>}
+    {query.isSuccess && !suggestions.isLoading && ideas.length > 1 && <Action title="Another idea" onPress={() => setIndex(value => value + 1)} />}
     <Pressable accessibilityRole="button" onPress={onActivity} style={({ pressed }) => [s.activity, { opacity: pressed ? 0.7 : 1 }]}>
       <Text style={s.activityText}>View shared activity</Text>
       <Icon name="arrow" size={18} color={palette.accent} />
