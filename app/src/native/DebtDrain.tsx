@@ -138,8 +138,9 @@ export function DebtDrain({ id, name }: { id: string; name: string }) {
       <Text style={s.result}>{done ? (drain.settled ? `That evens things out with ${name}.` : remainingBalance(plan, debt)) : ' '}</Text>
       <Text style={s.fine}>Prices are estimates.</Text>
       <View style={s.actions}>
-        <Action title="Replay" secondary onPress={() => void play()} />
-        {plans.length > 1 && <Action title="Another plan" secondary onPress={() => setPlanIndex((i) => i + 1)} />}
+        {/* Action is a full-width block with no side padding; each cell gives it an equal share of the row to fill. */}
+        <View style={s.actionCell}><Action title="Replay" secondary onPress={() => void play()} /></View>
+        {plans.length > 1 && <View style={s.actionCell}><Action title="Another plan" secondary onPress={() => setPlanIndex((i) => i + 1)} /></View>}
       </View>
     </View>
   );
@@ -167,5 +168,6 @@ const s = StyleSheet.create({
   stopAmount: { fontFamily: 'InterSemiBold', fontSize: 13, color: palette.ink },
   result: { fontFamily: 'InterMedium', fontSize: 12, color: palette.accent, marginTop: 4 },
   fine: { fontFamily: 'Inter', fontSize: 10, color: '#a48a7e', marginTop: 6 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 14, flexWrap: 'wrap' },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  actionCell: { flex: 1, minWidth: 0 },
 });

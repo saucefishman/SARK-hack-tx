@@ -47,8 +47,12 @@ export default function Overview() {
         <View style={s.list}>
           {shown.map(item => <Pressable key={item.personId} accessibilityRole="button" accessibilityLabel={`View your balance with ${item.name}`} onPress={() => router.push({ pathname: '/friends/[id]', params: { id: item.personId } })} style={({ pressed }) => [s.friend, { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
             <Avatar name={item.name} size={54} />
-            <View style={{ flex: 1 }}><Text style={s.name}>{item.name}</Text><Text style={s.moments}>{item.eventCount} shared moments</Text></View>
-            <Text style={[s.balance, item.balanceCents < 0 && { color: palette.accent }]}>{item.balanceCents < 0 ? `Your turn · ${formatCents(-item.balanceCents)}` : item.balanceCents > 0 ? `Their turn · ${formatCents(item.balanceCents)}` : 'Even'}</Text>
+            <View style={{ flex: 1, minWidth: 0 }}><Text style={s.name}>{item.name}</Text><Text style={s.moments}>{item.eventCount} shared moments</Text></View>
+            {/* Two short lines instead of one long one, so a narrow phone never truncates it or squeezes the name. */}
+            <View style={s.turnBox}>
+              <Text style={[s.balance, item.balanceCents < 0 && { color: palette.accent }]}>{item.balanceCents < 0 ? 'Your turn' : item.balanceCents > 0 ? 'Their turn' : 'Even'}</Text>
+              {item.balanceCents !== 0 && <Text style={[s.turnAmount, item.balanceCents < 0 && { color: palette.accent }]}>{formatCents(Math.abs(item.balanceCents))}</Text>}
+            </View>
             <View style={s.chevron}><Icon name="chevron" size={21} color={palette.accent} /></View>
           </Pressable>)}
         </View>
@@ -74,5 +78,7 @@ const s = StyleSheet.create({
   moments: { fontFamily: 'Inter', fontSize: 12, lineHeight: 19, color: palette.muted, marginTop: 3 },
   chevron: { width: 29, height: 29, borderRadius: 15, backgroundColor: '#f8eee8', alignItems: 'center', justifyContent: 'center' },
   empty: { paddingVertical: 25 },
+  turnBox: { alignItems: 'flex-end', flexShrink: 0 },
   balance: { fontFamily: 'InterMedium', fontSize: 11, color: palette.muted },
+  turnAmount: { fontFamily: 'InterSemiBold', fontSize: 14, color: palette.muted, marginTop: 1 },
 });
