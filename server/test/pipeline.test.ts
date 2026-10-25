@@ -67,6 +67,22 @@ describe("pipeline vs truth.json", () => {
     expect(by("Lenoir")).toEqual([expect.objectContaining({ person_id: "p_sam", amount_cents: 8400, basis: "confirmed" })]);
   });
 
+  it("no-amount payers with no purchase history: RAG price message (Sam) and web fixture (Alex) give estimated totals", async () => {
+    const { rows } = await db.query<{ description: string; person_id: string; amount_cents: number; basis: string; evidence_message_id: string | null }>(
+      `SELECT e.description, p.person_id, p.amount_cents, p.basis, p.evidence_message_id FROM event_payer p JOIN event e ON e.id = p.event_id
+       WHERE e.description LIKE 'Karaoke%' OR e.description LIKE 'Kayaking%' ORDER BY e.date`,
+    );
+    // $20 a head (Alex, earlier thread) x 3 attendees; the cited receipt is that price message, not the "on me" message
+    expect(rows[0]).toMatchObject({ person_id: "p_sam", amount_cents: 6000, basis: "estimated", evidence_message_id: "weekendcrew_weekend1:1789995840000:1" });
+    // $25 per person (webCost fixture) x 2 attendees
+    expect(rows[1]).toMatchObject({ person_id: "p_alex", amount_cents: 5000, basis: "estimated" });
+    expect(rows).toHaveLength(2);
+    const led = await db.query<{ amount_cents: number; basis: string; evidence_message_id: string | null }>(
+      "SELECT amount_cents, basis, evidence_message_id FROM ledger_entry WHERE payer_id = 'p_sam' AND beneficiary_id = 'p_me' AND basis = 'estimated'",
+    );
+    expect(led.rows).toEqual([{ amount_cents: 2000, basis: "estimated", evidence_message_id: "weekendcrew_weekend1:1789995840000:1" }]);
+  });
+
   it("scenario 11 distractor amounts do not change the taco night total; lunch and dinner stay separate", async () => {
     const { rows } = await db.query<{ description: string; total_cents: number }>(
       "SELECT description, total_cents FROM event WHERE date IN ('2026-08-09','2026-08-01') ORDER BY date, description",

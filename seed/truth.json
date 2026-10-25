@@ -1,15 +1,15 @@
 {
   "friends": {
     "p_alex": {
-      "spentOnYouCents": 3000,
+      "spentOnYouCents": 5500,
       "youSpentOnThemCents": 17034,
-      "balanceCents": 11034,
+      "balanceCents": 8534,
       "possibleCents": 7500
     },
     "p_sam": {
-      "spentOnYouCents": 5150,
+      "spentOnYouCents": 7150,
       "youSpentOnThemCents": 11600,
-      "balanceCents": 6250,
+      "balanceCents": 4250,
       "possibleCents": 0
     },
     "p_jordan": {
@@ -749,6 +749,65 @@
           "amountCents": 600,
           "kind": "covered",
           "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "x-sam-karaoke-rag",
+      "date": "2026-10-03",
+      "description": "Karaoke at Ego's",
+      "attendeeIds": [
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "amountCents": 6000,
+          "basis": "estimated"
+        }
+      ],
+      "totalCents": 6000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_sam",
+          "beneficiaryId": "p_me",
+          "amountCents": 2000,
+          "kind": "covered",
+          "basis": "estimated"
+        }
+      ]
+    },
+    {
+      "key": "x-alex-kayak-web",
+      "date": "2026-10-10",
+      "description": "Kayaking at Lady Bird Lake",
+      "attendeeIds": [
+        "p_alex",
+        "p_me"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "amountCents": 5000,
+          "basis": "estimated"
+        }
+      ],
+      "totalCents": 5000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_alex",
+          "beneficiaryId": "p_me",
+          "amountCents": 2500,
+          "kind": "covered",
+          "basis": "estimated"
         }
       ]
     }

@@ -14,15 +14,23 @@ import { dollarsToCents } from "../domain/money";
 import { splitEvent } from "../domain/split";
 import { estimateBaseCost, type BaseCostDeps } from "../domain/estimateBaseCost";
 import { generateStructured, repayments, type GenerateOptions } from "../llm";
+import { ragHistoryCost, webColdStartCost } from "./cost";
 import { findNamedFriend } from "./ingest";
+import type { MessageSearch } from "./retrieval";
 
 export const payerReviewId = (eventId: string) => stableId("rv_payer", eventId);
 
 type Basis = "confirmed" | "assumed" | "estimated";
 
-/** History deps backed by the DB: Me's past purchases (cents) at the same merchant before the event date. */
-export function dbBaseCostDeps(db: Db): BaseCostDeps {
+/**
+ * estimateBaseCost deps backed by the DB: Me's past purchases (cents) at the same merchant before the event date (history),
+ * RAG over past messages, and the cold-start web search. `llm` carries mode / fixturesDir / injected clients (tests).
+ */
+export function dbBaseCostDeps(db: Db, opts: { llm?: GenerateOptions; llmMode?: GenerateOptions["mode"]; search?: MessageSearch } = {}): BaseCostDeps {
+  const gen: GenerateOptions = { ...opts.llm, ...(opts.llmMode ? { mode: opts.llmMode } : {}) };
   return {
+    rag: (e) => ragHistoryCost(db, e, { search: opts.search, llm: gen }),
+    coldStart: webColdStartCost(db, gen),
     history: async ({ merchant, before }) => {
       if (!merchant) return [];
       const { rows } = await db.query<{ amount_cents: number }>(
@@ -60,7 +68,8 @@ export interface AttributionResult {
 export async function attributeEvent(db: Db, id: string, deps: BaseCostDeps = dbBaseCostDeps(db)): Promise<AttributionResult | null> {
   const { rows: er } = await db.query<{
     id: string; d: string; description: string; attendee_ids: string[]; is_relevant: boolean; total_cents: number | null;
-  }>("SELECT id, to_char(date,'YYYY-MM-DD') AS d, description, attendee_ids, is_relevant, total_cents FROM event WHERE id = $1", [id]);
+    context_message_ids: string[] | null;
+  }>("SELECT id, to_char(date,'YYYY-MM-DD') AS d, description, attendee_ids, is_relevant, total_cents, context_message_ids FROM event WHERE id = $1", [id]);
   const ev = er[0];
   if (!ev) return null;
   const rid = payerReviewId(id);
@@ -76,7 +85,7 @@ export async function attributeEvent(db: Db, id: string, deps: BaseCostDeps = db
   let payers = pr.map((p) => ({ ...p }));
   let estimated = false;
 
-  // 1. explicit payer without an amount -> estimateBaseCost (stated -> history median -> cold start -> null)
+  // 1. explicit payer without an amount -> estimateBaseCost (stated -> history median -> RAG -> cold-start web -> null)
   if (payers.length === 1 && payers[0].amount_cents === null) {
     const { rows: protos } = await db.query<{ description: string | null }>(
       "SELECT p.description FROM event_source es JOIN proto_event p ON p.id = es.proto_event_id WHERE es.event_id = $1",
@@ -84,11 +93,16 @@ export async function attributeEvent(db: Db, id: string, deps: BaseCostDeps = db
     );
     const merchant = await findMerchant(db, [ev.description, ...protos.map((p) => p.description)]);
     const res = await estimateBaseCost(
-      { statedAmountCents: null, merchant, date: ev.d, headcount: new Set(ev.attendee_ids).size },
+      {
+        statedAmountCents: null, merchant, date: ev.d, description: ev.description,
+        headcount: new Set(ev.attendee_ids).size, contextMessageIds: ev.context_message_ids ?? [],
+      },
       deps,
     );
     if (res) {
       payers[0].amount_cents = res.amountCents;
+      // The price message is the receipt for an estimated amount (the covering message stays in the event's context).
+      if (res.source === "rag" && res.evidenceMessageId) payers[0].evidence_message_id = res.evidenceMessageId;
       if (payers[0].basis !== "assumed") payers[0].basis = res.basis === "estimated" ? "estimated" : "confirmed";
       estimated = true;
     }
@@ -274,7 +288,7 @@ export async function runAttribution(
 ): Promise<AttributionCounts> {
   const { rows } = await db.query<{ id: string }>("SELECT id FROM event ORDER BY date, id");
   const counts: AttributionCounts = { events: 0, estimated: 0, assumed: 0, payerReviews: 0, repayments: 0, unaccounted: 0, llmCalls: 0 };
-  const deps = dbBaseCostDeps(db);
+  const deps = dbBaseCostDeps(db, opts);
   for (const r of rows) {
     const res = await attributeEvent(db, r.id, deps);
     if (!res) continue;

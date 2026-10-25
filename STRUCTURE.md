@@ -25,10 +25,11 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/domain/ids.ts` — `stableId(prefix, ...parts)`, `eventId({date, attendeeIds, anchor})` — deterministic ids (sha256)
 - `server/src/domain/relevance.ts` — `isRelevant(...)`, `needsAttendeeReview(...)` — binary relevance rule (DESIGN §4)
 - `server/src/domain/split.ts` — `splitEvent({attendeeIds, payers, onlyTouching?})`, `allocate(total, weights)` — 6d equal split + multi-payer netting, largest-remainder cents
-- `server/src/domain/estimateBaseCost.ts` — `estimateBaseCost(event, deps)`, `medianCents`, `coldStartCost` (TODO(stub): muse-cold-start) — unknown-amount chain: stated → history median → cold start → null
+- `server/src/domain/estimateBaseCost.ts` — `estimateBaseCost(event, deps)`, `medianCents`, `coldStartCost` (offline null fallback) — unknown-amount chain: stated → txn history median → RAG (`deps.rag`) → web cold start (`deps.coldStart`) → null
+- `server/src/domain/ragCost.ts` — `quotePerPersonCents`, `pickPerPersonCents` — pure math over RAG price quotes (same venue preferred, median)
 
 ## Seed (Stream A)
-- `seed/scenario.json` — single source of truth for the demo data (20 events, all 12 BUILDPLAN §6 scenarios)
+- `seed/scenario.json` — single source of truth for the demo data (22 events: all 12 BUILDPLAN §6 scenarios + RAG and web cost cases; `expected.costSource`)
 - `seed/truth.json` — generated ground truth: per-friend totals, per-event ledger, expected review items
 - `server/src/seed/scenario.ts` — `Scenario` and friends — zod schema for scenario.json
 - `server/src/seed/generate.ts` — `generateSeed(scenario)`, `seedFiles(seed)`, `toMojibake`, `Truth*` types — pure deterministic generator
@@ -63,6 +64,15 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/sources/index.ts` — `sourcesFromDir(generatedDir)` — file sources over a seed `generated/` dir
 - `server/src/seed/write.ts` — `writeSeed(seedDir?)`, `loadScenario()` — shared by seed/demo/eval
 - `server/src/cli/{run-pipeline,eval,demo,llm-smoke}.ts` — `pnpm --filter server pipeline|eval|demo` and live Gemini smoke test (H3)
+
+## Retrieval and cost baseline (DESIGN §11)
+- `server/migrations/002_message_vectors.sql` — `message.embedding_vec vector(768)` + HNSW cosine index (guarded), `message.embedding_model`, `embedding_cache`
+- `server/src/llm/embed.ts` — `Embedder`, `getEmbedder(mode)`, `localEmbedder()`, `geminiEmbedder()`, `embedTexts(db, texts, e)`, `EMBED_DIMS` — the one embedder (local deterministic stand-in or live Gemini), cached
+- `server/src/pipeline/embed.ts` — `embedMessages(db, opts)`, `hasVectorColumn(db)` — pipeline stage `embed` (after ingest)
+- `server/src/pipeline/retrieval.ts` — `searchMessages(db, query, opts)`, `setSearchEmbedder`, `MessageHit`, `SearchOptions` — semantic message search (pgvector, JS cosine fallback)
+- `server/src/pipeline/cost.ts` — `ragHistoryCost`, `ragQuery`, `webColdStartCost` — RAG and web-search steps behind estimateBaseCost
+- `server/src/llm/webSearch.ts` — `generateGrounded`, `createGroundedClient`, `GroundedClient` — Google-Search-grounded Gemini with cache + replay fixtures
+- `server/src/llm/prompts/{costFromSnippets,webCost}.ts`, `server/src/llm/schemas/{costFromSnippets,webCost}.ts` — RAG quote extraction and web price extraction
 
 ## API
 - `server/src/api/server.ts` — `startServer(db, {port?, llmMode?})` — listen on a migrated Db

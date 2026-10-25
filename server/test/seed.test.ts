@@ -20,11 +20,11 @@ describe("generateSeed", () => {
     expect(seedFiles(generateSeed(scenario))["truth.json"]).toBe(onDisk);
   });
 
-  it("covers all 12 scenarios, ~20 events, both directions", () => {
+  it("covers all 12 scenarios, 22 events, both directions", () => {
     const { truth } = generateSeed(scenario);
     const covered = new Set(truth.events.flatMap((e) => e.scenarios));
     for (let i = 1; i <= 12; i++) expect(covered.has(i), `scenario ${i}`).toBe(true);
-    expect(truth.events.length).toBe(20);
+    expect(truth.events.length).toBe(22);
     for (const f of Object.values(truth.friends)) {
       expect(f.spentOnYouCents).toBeGreaterThan(0);
       expect(f.youSpentOnThemCents).toBeGreaterThan(0);
@@ -50,15 +50,16 @@ describe("generateSeed", () => {
   // Hand-computed truth (cents). Balance: positive = friend owes Me.
   it("matches hand-computed friend totals", () => {
     const { friends } = generateSeed(scenario).truth;
-    // Alex: spent on Me = brunch 90/3 = 3000. (Concert 7500 is assumed -> possible only.)
+    // Alex: spent on Me = brunch 90/3 = 3000 + kayak (web estimate $25 x 2 / 2) 2500 = 5500. (Concert 7500 is assumed -> possible only.)
     //   Me spent on Alex = ember1 60/3 2000 + uchi1 120/4 3000 + ember2 90/3 3000 + lunch 45/3 1500
     //     + tacos 48/4 1200 + uchi2 150/5 3000 + rounding 10000/3 -> 3334 (p_alex sorts first) = 17034.
-    //   Repayment Alex->Me 3000.  balance = 17034 - 3000 - 3000 = 11034.
-    expect(friends.p_alex).toEqual({ spentOnYouCents: 3000, youSpentOnThemCents: 17034, balanceCents: 11034, possibleCents: 7500 });
-    // Sam: spent on Me = lenoir 84/3 2800 + two-payers 1750 + coffee 12/2 600 = 5150.
+    //   Repayment Alex->Me 3000.  balance = 17034 - 5500 - 3000 = 8534.
+    expect(friends.p_alex).toEqual({ spentOnYouCents: 5500, youSpentOnThemCents: 17034, balanceCents: 8534, possibleCents: 7500 });
+    // Sam: spent on Me = lenoir 84/3 2800 + two-payers 1750 + coffee 12/2 600
+    //     + karaoke (RAG estimate $20 x 3 / 3) 2000 = 7150.
     //   Me on Sam = uchi1 3000 + dinner 60/3 2000 + ember3 72/3 2400 + tacos 1200 + uchi2 3000 = 11600.
-    //   Repayments: Sam->Me 3000 (-), Me->Sam 2800 (+).  balance = 11600 - 5150 - 3000 + 2800 = 6250.
-    expect(friends.p_sam).toEqual({ spentOnYouCents: 5150, youSpentOnThemCents: 11600, balanceCents: 6250, possibleCents: 0 });
+    //   Repayments: Sam->Me 3000 (-), Me->Sam 2800 (+).  balance = 11600 - 7150 - 3000 + 2800 = 4250.
+    expect(friends.p_sam).toEqual({ spentOnYouCents: 7150, youSpentOnThemCents: 11600, balanceCents: 4250, possibleCents: 0 });
     // Jordan: on Me = bar (estimated median(60,90,72)=72 -> 72/3) 2400 + pizza 66/3 2200 = 4600.
     //   Me on Jordan = ember1 2000 + uchi1 3000 + dinner 2000 + burgers 54/3 1800 + uchi2 3000 = 11800.
     //   Repayment Jordan->Me 6000.  balance = 11800 - 4600 - 6000 = 1200.
@@ -74,6 +75,9 @@ describe("generateSeed", () => {
     const ev = (k: string) => truth.events.find((e) => e.key === k)!;
     // Scenario 5: estimate = median(60,90,72)*100 = 7200
     expect(ev("s05-jordan-got-this").payers).toEqual([{ personId: "p_jordan", amountCents: 7200, basis: "estimated" }]);
+    // RAG case: $20 a head (earlier message) x 3 = 6000, Sam -> Me 2000 estimated; web case: $25 x 2 = 5000, Alex -> Me 2500 estimated
+    expect(ev("x-sam-karaoke-rag")).toMatchObject({ totalCents: 6000, ledger: [{ payerId: "p_sam", beneficiaryId: "p_me", amountCents: 2000, basis: "estimated" }] });
+    expect(ev("x-alex-kayak-web")).toMatchObject({ totalCents: 5000, ledger: [{ payerId: "p_alex", beneficiaryId: "p_me", amountCents: 2500, basis: "estimated" }] });
     // Scenario 6: 75 * 4 attendees = 30000 total; share 7500 assumed Alex -> Me
     expect(ev("s06-concert").ledger).toEqual([{ payerId: "p_alex", beneficiaryId: "p_me", amountCents: 7500, kind: "covered", basis: "assumed" }]);
     // Scenario 10 and 9: no ledger, not relevant

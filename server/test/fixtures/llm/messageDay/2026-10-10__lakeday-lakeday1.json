@@ -1,0 +1,23 @@
+{
+  "events": [
+    {
+      "date": "2026-10-10",
+      "description": "kayaking at Lady Bird Lake",
+      "peopleIds": [
+        "p_me",
+        "p_alex"
+      ],
+      "payerId": "p_alex",
+      "coveredPhrases": [
+        "I got the kayak rental"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "lakeday_lakeday1:1791620100000:3",
+        "lakeday_lakeday1:1791620400000:2",
+        "lakeday_lakeday1:1791632700000:1",
+        "lakeday_lakeday1:1791633000000:0"
+      ]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 // The one DB handle. postgres://... → pg.Pool (Tiger Data / local Postgres);
 // pglite://<dir> or pglite://memory → embedded PGlite (zero-install dev and tests).
 import { PGlite } from "@electric-sql/pglite";
+import { vector } from "@electric-sql/pglite/vector";
 import pg from "pg";
 import { getConfig } from "../config";
 
@@ -27,7 +28,7 @@ export function getDb(): Db {
 
 function pgliteDb(location: string): Db {
   const dataDir = location === "memory" || location === "" ? undefined : getConfig().resolvePath(location);
-  const lite = new PGlite(dataDir);
+  const lite = new PGlite({ dataDir, extensions: { vector } }); // pgvector in embedded mode too
   const wrap = (q: Pick<PGlite, "query" | "exec">): Db => ({
     async query<T>(sql: string, params: unknown[] = []) {
       const res = await q.query<T>(sql, params);

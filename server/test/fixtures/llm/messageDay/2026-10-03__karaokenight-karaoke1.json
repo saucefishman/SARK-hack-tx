@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "date": "2026-10-03",
+      "description": "karaoke at Ego's",
+      "peopleIds": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ],
+      "payerId": "p_sam",
+      "coveredPhrases": [
+        "karaoke's on me tonight"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "karaokenight_karaoke1:1791054600000:4",
+        "karaokenight_karaoke1:1791054840000:3",
+        "karaokenight_karaoke1:1791055200000:2",
+        "karaokenight_karaoke1:1791065700000:1",
+        "karaokenight_karaoke1:1791066000000:0"
+      ]
+    }
+  ]
+}

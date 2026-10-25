@@ -244,6 +244,32 @@
         "p_alex",
         "p_riley"
       ]
+    },
+    {
+      "key": "weekend1",
+      "title": "Weekend Crew",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_sam"
+      ]
+    },
+    {
+      "key": "karaoke1",
+      "title": "Karaoke Night",
+      "participants": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ]
+    },
+    {
+      "key": "lakeday1",
+      "title": "Lake Day",
+      "participants": [
+        "p_me",
+        "p_alex"
+      ]
     }
   ],
   "events": [
@@ -1460,6 +1486,137 @@
       "expected": {
         "relevant": true,
         "note": "Friend paid, stated amount: $12/2 = $6, Sam -> Me confirmed."
+      }
+    },
+    {
+      "key": "x-sam-karaoke-rag",
+      "date": "2026-10-03",
+      "time": "21:00",
+      "description": "Karaoke at Ego's",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_sam",
+          "basis": "estimated",
+          "perPersonDollars": 20
+        }
+      ],
+      "messages": [
+        {
+          "thread": "weekend1",
+          "sender": "p_me",
+          "at": "2026-09-21T13:00",
+          "text": "we need to do karaoke again soon"
+        },
+        {
+          "thread": "weekend1",
+          "sender": "p_alex",
+          "at": "2026-09-21T13:04",
+          "text": "Ego's was like $20 a head last time, super cheap for a private room"
+        },
+        {
+          "thread": "weekend1",
+          "sender": "p_sam",
+          "at": "2026-09-21T13:06",
+          "text": "lol yes"
+        },
+        {
+          "thread": "karaoke1",
+          "sender": "p_riley",
+          "at": "2026-10-03T19:10",
+          "text": "ego's karaoke tonight? 9pm"
+        },
+        {
+          "thread": "karaoke1",
+          "sender": "p_me",
+          "at": "2026-10-03T19:14",
+          "text": "in"
+        },
+        {
+          "thread": "karaoke1",
+          "sender": "p_sam",
+          "at": "2026-10-03T19:20",
+          "text": "yes!! count me in"
+        },
+        {
+          "thread": "karaoke1",
+          "sender": "p_sam",
+          "at": "2026-10-03T22:15",
+          "text": "karaoke's on me tonight, you two don't pay for anything"
+        },
+        {
+          "thread": "karaoke1",
+          "sender": "p_me",
+          "at": "2026-10-03T22:20",
+          "text": "you're the best, thank you!!"
+        }
+      ],
+      "calendar": {
+        "title": "Karaoke at Ego's Karaoke",
+        "durationMin": 150
+      },
+      "expected": {
+        "relevant": true,
+        "costSource": "rag",
+        "note": "RAG cost step: Sam covers Me and Riley, no amount stated, Me never paid at Ego's (no history). An earlier message in another thread (weekend1, Alex: \"$20 a head\") gives per-person $20; code multiplies: $20 x 3 = $60 total, $20 each, Sam -> Me 2000, basis estimated."
+      }
+    },
+    {
+      "key": "x-alex-kayak-web",
+      "date": "2026-10-10",
+      "time": "10:00",
+      "description": "Kayaking at Lady Bird Lake",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_alex"
+      ],
+      "payers": [
+        {
+          "person": "p_alex",
+          "basis": "estimated",
+          "perPersonDollars": 25
+        }
+      ],
+      "messages": [
+        {
+          "thread": "lakeday1",
+          "sender": "p_alex",
+          "at": "2026-10-10T08:15",
+          "text": "kayaks at Lady Bird Lake this morning? 10am"
+        },
+        {
+          "thread": "lakeday1",
+          "sender": "p_me",
+          "at": "2026-10-10T08:20",
+          "text": "yes let's do it"
+        },
+        {
+          "thread": "lakeday1",
+          "sender": "p_alex",
+          "at": "2026-10-10T11:45",
+          "text": "I got the kayak rental, you can get lunch next time"
+        },
+        {
+          "thread": "lakeday1",
+          "sender": "p_me",
+          "at": "2026-10-10T11:50",
+          "text": "deal, thanks!"
+        }
+      ],
+      "calendar": {
+        "title": "Kayaking at Lady Bird Lake",
+        "durationMin": 120
+      },
+      "expected": {
+        "relevant": true,
+        "costSource": "web",
+        "note": "Cold-start web step: Alex covers Me, no amount stated anywhere, no history, no price in any message. Per-person $25 comes from the hand-written web replay fixture (webCost); $25 x 2 = $50, Alex -> Me 2500, basis estimated."
       }
     }
   ]

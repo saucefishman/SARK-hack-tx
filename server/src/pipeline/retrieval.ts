@@ -1,6 +1,8 @@
 // Semantic search over stored messages (DESIGN §11: pgvector retrieval). Contract used by the
-// cost-baseline RAG step; implementation swaps from keyword overlap to pgvector without touching callers.
+// cost-baseline RAG step. Query is embedded with the same embedder as the stored messages.
 import type { Db } from "../db/pool";
+import { embedTexts, getEmbedder, pgVector, type Embedder } from "../llm/embed";
+import { hasVectorColumn } from "./embed";
 
 export interface MessageHit {
   messageId: string;
@@ -21,29 +23,74 @@ export interface SearchOptions {
   excludeMessageIds?: string[];
   /** Drop hits scoring below this. */
   minScore?: number;
+  /** Query embedder (default: module default, see setSearchEmbedder; must match the one used by embedMessages). */
+  embedder?: Embedder;
+  /** false forces the JS cosine path over message.embedding (default: pgvector when the column exists). */
+  useVector?: boolean;
 }
 
 export type MessageSearch = (db: Db, query: string, opts?: SearchOptions) => Promise<MessageHit[]>;
 
-const tokens = (s: string) => new Set(s.toLowerCase().match(/[a-z0-9$']+/g) ?? []);
+let defaultEmbedder: Embedder | undefined;
+/** Configure the embedder used for queries when opts.embedder is not given (default: getEmbedder()). */
+export function setSearchEmbedder(e: Embedder | undefined): void {
+  defaultEmbedder = e;
+}
 
-/** TODO(stub): retrieval — keyword-overlap placeholder; replaced by pgvector search over message embeddings. */
+interface Row {
+  id: string;
+  thread_id: string;
+  sender_id: string | null;
+  body: string;
+  sent_at: string;
+  score?: number;
+  embedding?: number[];
+}
+const COLS = `id, thread_id, sender_id, body, to_char(sent_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS sent_at`;
+
+const hit = (r: Row, score: number): MessageHit => ({
+  messageId: r.id, threadId: r.thread_id, senderId: r.sender_id, body: r.body, sentAt: r.sent_at, score,
+});
+
 export const searchMessages: MessageSearch = async (db, query, opts = {}) => {
-  const { rows } = await db.query<{ id: string; thread_id: string; sender_id: string | null; body: string; sent_at: string }>(
-    `SELECT id, thread_id, sender_id, body, to_char(sent_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS sent_at
-     FROM message WHERE ($1::timestamptz IS NULL OR sent_at < $1::timestamptz)`,
-    [opts.before ?? null],
-  );
-  const q = tokens(query);
-  const skip = new Set(opts.excludeMessageIds ?? []);
-  return rows
-    .filter((r) => !skip.has(r.id))
-    .map((r) => {
-      const t = tokens(r.body);
-      const overlap = [...q].filter((w) => t.has(w)).length;
-      return { messageId: r.id, threadId: r.thread_id, senderId: r.sender_id, body: r.body, sentAt: r.sent_at, score: q.size ? overlap / q.size : 0 };
-    })
-    .filter((h) => h.score > (opts.minScore ?? 0))
-    .sort((a, b) => b.score - a.score || a.messageId.localeCompare(b.messageId))
-    .slice(0, opts.k ?? 5);
+  const embedder = opts.embedder ?? (defaultEmbedder ??= getEmbedder());
+  const [q] = await embedTexts(db, [query], embedder);
+  const k = opts.k ?? 5;
+  const min = opts.minScore ?? 0;
+  const before = opts.before ?? null;
+  const skip = opts.excludeMessageIds ?? [];
+  const order = (a: MessageHit, b: MessageHit) => b.score - a.score || a.messageId.localeCompare(b.messageId);
+
+  let hits: MessageHit[];
+  if (opts.useVector !== false && (await hasVectorColumn(db))) {
+    const { rows } = await db.query<Row & { score: number }>(
+      `SELECT ${COLS}, 1 - (embedding_vec <=> $1::vector) AS score FROM message
+       WHERE embedding_vec IS NOT NULL AND embedding_model = $2
+         AND ($3::timestamptz IS NULL OR sent_at < $3::timestamptz)
+         AND NOT (id = ANY($4::text[]))
+       ORDER BY embedding_vec <=> $1::vector, id LIMIT $5`,
+      [pgVector(q!), embedder.model, before, skip, k],
+    );
+    hits = rows.map((r) => hit(r, Number(r.score)));
+  } else {
+    const { rows } = await db.query<Row>(
+      `SELECT ${COLS}, embedding FROM message
+       WHERE embedding IS NOT NULL AND embedding_model = $1
+         AND ($2::timestamptz IS NULL OR sent_at < $2::timestamptz)
+         AND NOT (id = ANY($3::text[]))`,
+      [embedder.model, before, skip],
+    );
+    hits = rows.map((r) => hit(r, cosine(q!, r.embedding!.map(Number))));
+  }
+  return hits.filter((h) => h.score > min).sort(order).slice(0, k);
 };
+
+function cosine(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i]! * b[i]!;
+    na += a[i]! * a[i]!;
+    nb += b[i]! * b[i]!;
+  }
+  return na && nb ? dot / Math.sqrt(na * nb) : 0;
+}

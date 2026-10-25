@@ -109,7 +109,7 @@ describe("api", () => {
     const rerunApp = await buildApp({ db: fresh, llmMode: "replay", sources: sourcesFromDir(writeTempSeed()) });
     const res = await rerunApp.inject({ method: "POST", url: "/dev/rerun" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ "ingest.persons": 5, "merge.events": 20, "ledger.repayments": 4 });
+    expect(res.json()).toMatchObject({ "ingest.persons": 5, "merge.events": 22, "ledger.repayments": 4 });
     await rerunApp.close();
     await fresh.end();
   });

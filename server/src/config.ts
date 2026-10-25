@@ -14,6 +14,8 @@ const Env = z.object({
   NESSIE_SOURCE: z.enum(["file", "api"]).default("file"),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default("gemini-3.8-flash"),
+  GEMINI_EMBED_MODEL: z.string().default("gemini-embedding-001"),
+  EMBED_MODE: z.enum(["local", "live"]).default("local"),
   LLM_MODE: z.enum(["live", "replay"]).default("replay"),
   MESSAGES_DIR: z.string().default("./seed/generated/instagram"),
   CALENDAR_FILE: z.string().default("./seed/generated/calendar.json"),
@@ -40,6 +42,9 @@ export function getConfig(overrides: Partial<z.input<typeof Env>> = {}): Config 
   };
   if (cfg.LLM_MODE === "live" && !cfg.GEMINI_API_KEY) {
     throw new Error("LLM_MODE=live requires GEMINI_API_KEY (human task H3)");
+  }
+  if (cfg.EMBED_MODE === "live" && !cfg.GEMINI_API_KEY) {
+    throw new Error("EMBED_MODE=live requires GEMINI_API_KEY (human task H3)");
   }
   if (Object.keys(overrides).length === 0) cached = cfg;
   return cfg;

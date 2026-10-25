@@ -1,18 +1,20 @@
-// Pipeline orchestrator (DESIGN 4): ingest -> protoEvents -> merge -> relevance -> attribution -> ledger.
+// Pipeline orchestrator (DESIGN 4): ingest -> embed -> protoEvents -> merge -> relevance -> attribution -> ledger.
 // Every stage is idempotent, so any `from` stage can be rerun on its own.
 import type { Db } from "../db/pool";
 import { getConfig } from "../config";
 import { defaultSources } from "../sources";
+import type { Embedder } from "../llm/embed";
 import type { GenerateOptions } from "../llm";
 import { runAttribution } from "./attribution";
+import { embedMessages } from "./embed";
 import { ingest, type IngestSources } from "./ingest";
 import { runLedger } from "./ledger";
 import { mergeEvents } from "./merge";
 import { buildProtoEvents } from "./protoEvents";
 import { runRelevance } from "./relevance";
 
-export type Stage = "ingest" | "protoEvents" | "merge" | "relevance" | "attribution" | "ledger";
-export const STAGES: Stage[] = ["ingest", "protoEvents", "merge", "relevance", "attribution", "ledger"];
+export type Stage = "ingest" | "embed" | "protoEvents" | "merge" | "relevance" | "attribution" | "ledger";
+export const STAGES: Stage[] = ["ingest", "embed", "protoEvents", "merge", "relevance", "attribution", "ledger"];
 
 export interface RunOptions {
   from?: Stage;
@@ -21,6 +23,8 @@ export interface RunOptions {
   sources?: IngestSources;
   /** Progress logger (default silent). */
   log?: (line: string) => void;
+  /** Message embedder (default: from EMBED_MODE; local = offline). */
+  embedder?: Embedder;
   /** Extra generateStructured options (tests: custom client / fixtures dir). */
   llm?: GenerateOptions;
 }
@@ -44,6 +48,9 @@ export async function runPipeline(db: Db, opts: RunOptions = {}): Promise<Record
     switch (stage) {
       case "ingest":
         record(stage, await ingest(db, opts.sources ?? defaultSources(getConfig())));
+        break;
+      case "embed":
+        record(stage, await embedMessages(db, { embedder: opts.embedder }));
         break;
       case "protoEvents":
         record(stage, await buildProtoEvents(db, llm));

@@ -112,10 +112,42 @@ describe("estimateBaseCost", () => {
   });
   it("cold start scales by headcount", async () => {
     const r = await estimateBaseCost({ ...ev, headcount: 4 }, { history: noHist, coldStart: async () => ({ perPersonCents: 3000, sourceUrl: "u", confidence: 0.3 }) });
-    expect(r).toEqual({ amountCents: 12000, basis: "estimated", source: "cold_start" });
+    expect(r).toEqual({ amountCents: 12000, basis: "estimated", source: "cold_start", sourceUrl: "u" });
   });
   it("null when nothing (default stub)", async () => {
     expect(await estimateBaseCost(ev, { history: noHist })).toBeNull();
+  });
+  it("chain order: stated > history > rag > cold start > null", async () => {
+    const calls: string[] = [];
+    const deps = (hist: number[], rag: number | null, cold: number | null) => ({
+      history: async () => (calls.push("history"), hist),
+      rag: async () => (calls.push("rag"), rag === null ? null : { amountCents: rag, evidenceMessageId: "m1" }),
+      coldStart: async () => (calls.push("cold"), cold === null ? null : { perPersonCents: cold, sourceUrl: "u", confidence: 0.3 }),
+    });
+    const e = { ...ev, headcount: 2 };
+    expect(await estimateBaseCost({ ...e, statedAmountCents: 500 }, deps([100], 200, 300))).toMatchObject({ source: "message", amountCents: 500 });
+    expect(calls).toEqual([]);
+    expect(await estimateBaseCost(e, deps([100], 200, 300))).toMatchObject({ source: "history", amountCents: 100 });
+    expect(calls).toEqual(["history"]);
+    calls.length = 0;
+    expect(await estimateBaseCost(e, deps([], 6000, 300))).toEqual({ amountCents: 6000, basis: "estimated", source: "rag", evidenceMessageId: "m1" });
+    expect(calls).toEqual(["history", "rag"]);
+    calls.length = 0;
+    expect(await estimateBaseCost(e, deps([], null, 2500))).toMatchObject({ source: "cold_start", amountCents: 5000 });
+    expect(calls).toEqual(["history", "rag", "cold"]);
+    expect(await estimateBaseCost(e, deps([], null, null))).toBeNull();
+  });
+  it("rag receives the whole event (description, context ids) and cold start gets the description", async () => {
+    let ragSeen: unknown;
+    let coldSeen: unknown;
+    const e = { merchant: null, date: "2026-10-03", description: "Karaoke at Ego's", contextMessageIds: ["a", "b"], headcount: 3 };
+    await estimateBaseCost(e, {
+      history: noHist,
+      rag: async (x) => ((ragSeen = x), null),
+      coldStart: async (q) => ((coldSeen = q), null),
+    });
+    expect(ragSeen).toEqual(e);
+    expect(coldSeen).toEqual({ merchant: null, eventType: undefined, description: "Karaoke at Ego's" });
   });
 });
 

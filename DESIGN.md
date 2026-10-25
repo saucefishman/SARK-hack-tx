@@ -25,7 +25,7 @@ Everything below is the design; this is what ships first. Build in this order an
 1. **Must (demo works):** seeded data in Postgres → events → Gemini attendee + payer extraction → directional ledger → friend list UI showing **spent on you** first, **you spent on them** second, then balance, with receipts. Both directions must be present in the seed data.
 2. **Should:** assumed payer + "Possible" display + confirm flow (6d); Gemini repayment detection in messages; `unaccounted` bucket; confidence badge.
 3. **Could:** calendar as a third source; review queue UI; eval script.
-4. **Won't (MVP):** live API sync, pgvector, web-search baselines, per-day merge across all three sources (for MVP, join each transaction to the calendar/messages of the same day), friend-paid events without a stated amount.
+4. **Won't (MVP):** live API sync, per-day merge across all three sources (for MVP, join each transaction to the calendar/messages of the same day), friend-paid events without a stated amount.
 
 ## 2. Glossary
 
@@ -239,3 +239,11 @@ Mark each stub `TODO(stub): social` in code and list it in `STRUCTURE.md`.
 - Live Nessie (checked 2026-10-24 with a real key; H6 resolved): `/accounts/{id}/purchases` and `/accounts/{id}/transfers` work for list and create. Merchant `category` is a string, not a list. Purchase create rejects `type`. Transfer create accepts only `transaction_date, status, amount, description` (no payee), and the list returns `id` instead of `_id` and answers 404 when empty. `NessieHttpClient` normalizes all of this. Ingest from live Nessie gives the same 15 transactions as the file source. Live txn ids differ from the file's, so replay fixtures only cover `NESSIE_SOURCE=file`.
 - Gemini: `gemini-2.5-flash` is retired for new keys; default model is now `gemini-3.8-flash`.
 - Tiger Data: node-pg treats `sslmode=require` as verify-full and rejects Timescale's private CA; `createDb` applies libpq semantics (`uselibpqcompat=true`: encrypted, CA not verified), same as psql.
+
+## 14. Retrieval and expected-cost baseline (added 2026-10-25, from §11)
+
+- **pgvector retrieval.** New `embed` stage after ingest stores a 768-dim embedding per message (`message.embedding_vec`, HNSW cosine index; `message.embedding` real[] fallback where pgvector is absent; PGlite loads its vector extension). `EMBED_MODE=local` (default) uses a deterministic offline hashing embedder so replay never touches the network; `EMBED_MODE=live` uses Gemini embeddings (`GEMINI_EMBED_MODEL`, confirm in H3).
+- **Expected-cost chain** for friend-paid events with no stated amount: stated → median of the user's past purchases at the merchant → **RAG**: semantic search over earlier messages, Gemini extracts stated prices (per-person, or total + headcount), code takes the median, same-venue quotes first → **web search**: Gemini grounded with Google Search (free-text call, then structured extraction; the source URL always comes from grounding metadata, never from the model) → null. All results are `estimated`; the web step is low confidence.
+- RAG evidence: `event_payer.evidence_message_id` points at the price message; the "on me" message stays in the event context.
+- Without a merchant from the user's own transactions, the venue is the event description (also the web cache key).
+- Seed adds two cases: Sam's karaoke (RAG finds "Ego's was like $20 a head") and Alex's kayak rental (web fixture, $25/person, hand-written replay).

@@ -68,7 +68,7 @@ export function createGeminiClient(apiKey?: string, model?: string): LlmClient {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function retryable(e: unknown): boolean {
+export function retryable(e: unknown): boolean {
   // A daily quota (free tier: 20 requests/day/model) won't recover within a backoff; fail fast.
   if (/PerDay|per day/i.test(String((e as Error)?.message ?? ""))) return false;
   const status = (e as { status?: number; code?: number })?.status ?? (e as { code?: number })?.code;
@@ -77,7 +77,7 @@ function retryable(e: unknown): boolean {
 }
 
 /** Gemini sometimes emits null for absent optionals; zod .optional() wants undefined. */
-function stripNulls(v: unknown): unknown {
+export function stripNulls(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(stripNulls);
   if (v && typeof v === "object") {
     return Object.fromEntries(
@@ -89,12 +89,12 @@ function stripNulls(v: unknown): unknown {
   return v;
 }
 
-function extractJson(text: string): unknown {
+export function extractJson(text: string): unknown {
   const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   return JSON.parse(t);
 }
 
-async function callWithRetry(client: LlmClient, prompt: string, schema: object, o: GenerateOptions): Promise<string> {
+export async function callWithRetry(client: LlmClient, prompt: string, schema: object, o: GenerateOptions): Promise<string> {
   const max = o.maxTries ?? 4;
   const base = o.backoffMs ?? 1000;
   for (let attempt = 1; ; attempt++) {
@@ -107,18 +107,18 @@ async function callWithRetry(client: LlmClient, prompt: string, schema: object, 
   }
 }
 
-function previewInput(input: unknown): string {
+export function previewInput(input: unknown): string {
   const s = JSON.stringify(input);
   return s.length > 300 ? `${s.slice(0, 300)}...` : s;
 }
 
-async function cacheGet<O>(db: Db, key: string, schema: z.ZodType<O>): Promise<O | undefined> {
+export async function cacheGet<O>(db: Db, key: string, schema: z.ZodType<O>): Promise<O | undefined> {
   const { rows } = await db.query<{ response: unknown }>("SELECT response FROM llm_cache WHERE key = $1", [key]);
   if (!rows.length) return undefined;
   return schema.parse(rows[0]!.response);
 }
 
-async function cachePut(db: Db, key: string, model: string, promptId: string, value: unknown): Promise<void> {
+export async function cachePut(db: Db, key: string, model: string, promptId: string, value: unknown): Promise<void> {
   await db.query(
     `INSERT INTO llm_cache (key, model, prompt_id, response) VALUES ($1, $2, $3, $4::jsonb)
      ON CONFLICT (key) DO UPDATE SET response = EXCLUDED.response, model = EXCLUDED.model`,
@@ -198,7 +198,7 @@ function runValidate<I, O>(prompt: PromptDef<I, O>, input: I, output: O): void {
   if (v) v(input, output);
 }
 
-function toJsonSchema(schema: z.ZodType): object {
+export function toJsonSchema(schema: z.ZodType): object {
   const { $schema: _omit, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
   return rest;
 }

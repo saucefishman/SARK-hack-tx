@@ -32,7 +32,7 @@ export const ScenarioPayer = z.object({
   amountDollars: z.number().int().optional(),
   /** estimated: median of Me's earlier Nessie purchases at this merchant (treated as event totals). */
   estimateFromMerchant: z.string().optional(),
-  /** assumed: total = perPersonDollars x headcount. */
+  /** assumed, or estimated via RAG / web (see expected.costSource): total = perPersonDollars x headcount. */
   perPersonDollars: z.number().int().optional(),
 });
 export type ScenarioPayer = z.infer<typeof ScenarioPayer>;
@@ -72,6 +72,12 @@ export const ScenarioEvent = z.object({
   expected: z.object({
     relevant: z.boolean(),
     note: z.string(),
+    /**
+     * Friend-paid, no amount, no history: where the per-person figure comes from. The oracle cannot search, so it takes the
+     * payer's `perPersonDollars` as the answer the pipeline's RAG step ("rag": a price in an earlier message) or cold-start web
+     * step ("web": the webCost replay fixture) must reproduce.
+     */
+    costSource: z.enum(["rag", "web"]).optional(),
     review: z.array(z.object({ kind: z.enum(["alias", "attendees", "payer"]) })).optional(),
   }),
 });

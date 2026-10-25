@@ -7,6 +7,8 @@
 //  - Me paid (Nessie txn): equal split, every other attendee gets covered Me->friend, confirmed.
 //  - Friend paid, stated amount: covered friend->Me share, confirmed.
 //  - Friend paid, no amount (estimated): total = median of Me's earlier Nessie purchases at the same merchant.
+//  - Friend paid, no amount, no history, expected.costSource rag|web: total = payer.perPersonDollars x headcount (the per-person
+//    figure the RAG / web cost steps must reproduce; the oracle cannot search). Basis estimated.
 //  - Implicit payer (assumed): total = perPersonDollars x headcount; assumed payer = attendee who posted the
 //    ticket price (else most frequent past payer); ledger basis assumed -> counts as "possible" only.
 //  - Multi-payer: surplus/debt pro rata (see oracle.ts). Only edges touching Me are kept.
@@ -202,6 +204,9 @@ export function generateSeed(input: unknown): GeneratedSeed {
       else throw new Error(`${e.key}: payer ${p.person} has no amount source`);
       return { personId: p.person, amountCents, basis: p.basis as string };
     });
+    if (e.expected.costSource && !e.payers.some((p) => p.basis === "estimated" && p.perPersonDollars !== undefined)) {
+      throw new Error(`${e.key}: costSource ${e.expected.costSource} needs an estimated payer with perPersonDollars`);
+    }
     const sourceCount = (e.nessie ? 1 : 0) + (e.messages.length ? 1 : 0) + (e.calendar ? 1 : 0);
     const relevant = headcount(e) >= 2 && payers.length > 0 && sourceCount >= 2;
     if (relevant !== e.expected.relevant) throw new Error(`${e.key}: computed relevant=${relevant} but scenario expects ${e.expected.relevant}`);
