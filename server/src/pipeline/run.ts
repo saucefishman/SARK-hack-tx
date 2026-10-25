@@ -74,7 +74,7 @@ async function runPipelineImpl(db: Db, opts: RunOptions): Promise<Record<string,
       case "ledger":
         return runLedger(db);
       case "payback":
-        return runPayback(db, { log });
+        return runPayback(db, { log, ...llm });
     }
   };
   for (const stage of STAGES.slice(start)) {

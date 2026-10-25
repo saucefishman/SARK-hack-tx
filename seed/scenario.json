@@ -279,6 +279,14 @@
         "p_alex",
         "p_riley"
       ]
+    },
+    {
+      "key": "plans1",
+      "title": "Weekend Plans",
+      "participants": [
+        "p_me",
+        "p_alex"
+      ]
     }
   ],
   "events": [
@@ -1686,6 +1694,32 @@
         "relevant": true,
         "note": "Payback demo debt: Alex covers Me and Riley for $540 (stated), $180 each. Alex -> Me 18000 confirmed flips Alex's balance to Me owing him $94.66, so the payback suggestions have a debt to settle."
       }
+    }
+  ],
+  "planMessages": [
+    {
+      "thread": "plans1",
+      "sender": "p_alex",
+      "at": "2026-10-18T12:00",
+      "text": "trivia at Hole in the Wall on Friday Nov 20? it's $12 a head"
+    },
+    {
+      "thread": "plans1",
+      "sender": "p_me",
+      "at": "2026-10-18T12:05",
+      "text": "yes! also can't wait for Khruangbin on Nov 7"
+    },
+    {
+      "thread": "plans1",
+      "sender": "p_alex",
+      "at": "2026-10-18T12:10",
+      "text": "I'm buying the Symphony tickets for Dec 12, my treat"
+    },
+    {
+      "thread": "plans1",
+      "sender": "p_me",
+      "at": "2026-10-18T12:15",
+      "text": "we should do Barton Springs sometime"
     }
   ],
   "plans": [

@@ -104,5 +104,7 @@ export const Scenario = z.object({
   threads: z.array(z.object({ key: z.string(), title: z.string(), participants: z.array(Id) })),
   events: z.array(ScenarioEvent),
   plans: z.array(ScenarioPlan).default([]),
+  /** Chat messages that mention future plans (payback planFinder). Not tied to any event; they never reach the ledger. */
+  planMessages: z.array(ScenarioMessage).default([]),
 });
 export type Scenario = z.infer<typeof Scenario>;

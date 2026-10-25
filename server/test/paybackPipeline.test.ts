@@ -6,6 +6,7 @@ import { generateSeed } from "../src/seed/generate";
 import { loadScenario } from "../src/seed/write";
 import { eventsFromSerp, parseDollarRange, placesFromSerp, PRICE_LEVEL_BANDS, resolveMonthDay } from "../src/domain/serpPrice";
 import type { Db } from "../src/db/pool";
+import { TRUST } from "../src/domain/payback";
 import { friendShareCents, runPayback, solveFriend } from "../src/pipeline/payback";
 import { runPipeline } from "../src/pipeline/run";
 import { sourcesFromDir } from "../src/sources";
@@ -39,8 +40,47 @@ describe("payback stage on the seed", () => {
   it("future calendar entries are plans, not events: they never reach the event table or the ledger", async () => {
     const { rows } = await db.query("SELECT 1 FROM event WHERE date > '2026-10-25'");
     expect(rows).toEqual([]);
-    const fe = await db.query<{ description: string }>("SELECT description FROM future_event ORDER BY date");
-    expect(fe.rows.map((r) => r.description)).toEqual(["Khruangbin at Moody Center", "Dinner at Uchi"]);
+    const fe = await db.query<{ description: string; source: string }>("SELECT description, source FROM future_event ORDER BY date");
+    expect(fe.rows).toEqual([
+      { description: "Khruangbin at Moody Center", source: "calendar" },
+      { description: "Dinner at Uchi", source: "calendar" },
+      { description: "Trivia at Hole in the Wall", source: "message" },
+    ]);
+  });
+
+  it("chat plans: planFinder runs once per recent thread with a debtor; code rejects the plan a friend is paying for; a vague idea is never a plan", async () => {
+    expect(counts["payback.planCalls"]).toBe(4); // comedor, hamilton, lake day, weekend plans
+    expect(counts["payback.planRejected"]).toBe(1); // "I'm buying the Symphony tickets ... my treat" (Alex is the payer)
+    expect(counts["payback.plans"]).toBe(3);
+    const { rows } = await db.query<{ title: string; low: number; basis: string; evidence: string }>(
+      "SELECT title, friend_share_low_cents AS low, basis, evidence FROM payback_candidate WHERE kind = 'planned' ORDER BY date",
+    );
+    expect(rows.map((r) => r.title)).toEqual(["Khruangbin at Moody Center", "Dinner at Uchi", "Trivia at Hole in the Wall"]); // no Symphony, no Barton Springs
+    expect(rows[2]).toMatchObject({ low: 1200, basis: "confirmed" }); // "$12 a head" stated in the message
+    expect(rows[2]!.evidence).toContain("Mentioned in your chat with Alex");
+  });
+
+  it("the same plan in the calendar and in chat is one candidate that keeps both receipts", async () => {
+    const { rows } = await db.query<{ evidence: string; low: number }>("SELECT evidence, friend_share_low_cents AS low FROM payback_candidate WHERE title LIKE 'Khruangbin%'");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.low).toBe(5900);
+    expect(rows[0]!.evidence).toContain("On your calendar");
+    expect(rows[0]!.evidence).toContain("Mentioned in your chat");
+    expect((await db.query("SELECT 1 FROM future_event WHERE description LIKE 'Khruangbin%'")).rows).toHaveLength(1);
+  });
+
+  it("tiers: planned and discovered share the top; recurring is the fallback and stays out of the best bundles", async () => {
+    const { rows } = await db.query<{ kind: string; trust: number }>("SELECT kind, trust FROM payback_candidate");
+    const trust = (k: string) => [...new Set(rows.filter((r) => r.kind === k).map((r) => r.trust))];
+    expect(trust("planned")).toEqual([TRUST.planned]);
+    expect(trust("discovered")).toEqual([TRUST.discovered]);
+    expect(TRUST.discovered).toBeGreaterThan(TRUST.recurringMax);
+    expect(Math.max(...trust("recurring"))).toBeLessThanOrEqual(TRUST.recurringMax);
+    expect(rows.some((r) => r.kind === "recurring")).toBe(true); // Ember Bar exists, it just ranks last
+    const r = await solveFriend(db, "p_alex");
+    expect(r.suggestions.flatMap((s) => s.items).some((i) => i.kind === "recurring")).toBe(false);
+    expect(r.suggestions.flatMap((s) => s.items).some((i) => i.kind === "discovered")).toBe(true);
+    expect(r.suggestions.flatMap((s) => s.items).filter((i) => i.kind === "planned").length).toBeGreaterThan(0);
   });
 
   it("every suggestion settles the debt within tolerance, with receipts", async () => {
@@ -102,6 +142,36 @@ describe("payback stage on the seed", () => {
     await runPayback(db);
     expect((await solveFriend(db, "p_alex")).suggestions.map((s) => s.id)).not.toContain(first.suggestions[0].id);
     await app.close();
+  });
+});
+
+describe("new ideas must be novel and capped", () => {
+  it("drops SerpAPI results the pair already does or has planned, and keeps at most 6, spread across queries", async () => {
+    const db = await testDb();
+    await runPipeline(db, { llmMode: "replay", sources: sourcesFromDir(dir) });
+    await db.exec("DELETE FROM price_quote");
+    const place = (title: string) => ({ title, type: "x", price: "$$", link: `https://example.test/${encodeURIComponent(title)}` });
+    const client: SerpApiClient = {
+      async search(engine, query) {
+        if (engine === "google_events") {
+          return { events_results: ["Moody Center Tour", "Show A", "Show B", "Show C"].map((t, i) => ({ title: t, date: { start_date: "Nov 2" }, description: `from $${20 + i}` })) };
+        }
+        return query.startsWith("bar")
+          ? { local_results: [place("Ember Bar Happy Hour"), place("Bar One"), place("Bar Two"), place("Bar Three")] }
+          : { local_results: [place("Uchi Austin"), place("Food One"), place("Food Two"), place("Food Three")] };
+      },
+    };
+    const c = await runPayback(db, { serp: client });
+    const { rows } = await db.query<{ title: string }>("SELECT title FROM payback_candidate WHERE kind = 'discovered' ORDER BY title");
+    const titles = rows.map((r) => r.title);
+    expect(titles).not.toContain("Ember Bar Happy Hour"); // Ember Bar: the pair's recurring spot
+    expect(titles).not.toContain("Uchi Austin"); // Uchi: already planned and already visited
+    expect(c.discovered).toBe(6);
+    expect(titles).toHaveLength(6);
+    // round-robin: 2 from each of the 3 queries (3 results each after the filter, never 3 + 3 + 0)
+    expect(titles.filter((t) => t.startsWith("Bar")).length).toBe(2);
+    expect(titles.filter((t) => t.startsWith("Food")).length).toBe(2);
+    expect(titles.filter((t) => t.startsWith("Show") || t.startsWith("Moody")).length).toBe(2);
   });
 });
 

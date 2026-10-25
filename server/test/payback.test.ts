@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { solvePayback, toleranceCents, type PaybackOption } from "../src/domain/payback";
+import { acceptMessagePlan, mergePlans, type PlanSource, type RawPlan } from "../src/domain/plans";
+import { isNovel, solvePayback, toleranceCents, TRUST, type PaybackOption } from "../src/domain/payback";
+import { planFinder } from "../src/llm";
 import { addDays, daysBetween, detectPatterns, type Occurrence } from "../src/domain/recurrence";
 
 const cfg = { asOf: "2026-10-25", tolerancePct: 10, toleranceMinCents: 1000, maxBundle: 3 };
@@ -109,5 +111,115 @@ describe("detectPatterns", () => {
   it("addDays/daysBetween round trip", () => {
     expect(addDays("2026-12-30", 3)).toBe("2027-01-02");
     expect(daysBetween("2026-12-30", "2027-01-02")).toBe(3);
+  });
+});
+
+describe("TRUST tiers", () => {
+  it("planned and discovered share the top tier; recurring tops out below both", () => {
+    expect(TRUST.planned).toBe(1);
+    expect(TRUST.discovered).toBeGreaterThanOrEqual(0.9);
+    expect(TRUST.recurringMax).toBeLessThan(TRUST.discovered);
+  });
+  it("a discovered idea outranks a recurring outing of the same price, and is close to a planned one", () => {
+    const base = { lowCents: 5000, highCents: 5000, confidence: 0.6, date: null } as const;
+    const r = solvePayback(5000, [
+      { ...base, id: "rec", kind: "recurring", title: "rec", trust: TRUST.recurringMax * 0.9 },
+      { ...base, id: "new", kind: "discovered", title: "new", trust: TRUST.discovered },
+      { ...base, id: "plan", kind: "planned", title: "plan", trust: TRUST.planned },
+    ], { ...cfg, maxBundle: 1 });
+    expect(r.bundles.map((b) => b.optionIds[0])).toEqual(["plan", "new", "rec"]);
+  });
+});
+
+describe("isNovel", () => {
+  it("rejects anything the pair already does or has planned, in either direction", () => {
+    expect(isNovel("Ember Bar Happy Hour", ["ember bar"])).toBe(false);
+    expect(isNovel("Uchi", ["Dinner at Uchi"])).toBe(false);
+    expect(isNovel("Odd Duck", ["ember bar", "uchi"])).toBe(true);
+  });
+  it("ignores punctuation and case, and never matches on tiny keys", () => {
+    expect(isNovel("The Ember-Bar!", ["EMBER BAR"])).toBe(false);
+    expect(isNovel("Taco Place", ["ta"])).toBe(true);
+    expect(isNovel("Taco Place", [""])).toBe(true);
+  });
+});
+
+describe("acceptMessagePlan", () => {
+  const ctx = { asOf: "2026-10-25", knownIds: new Set(["p_me", "p_alex", "p_sam"]), messageIds: new Set(["m1", "m2"]) };
+  const plan = (o: Partial<RawPlan> = {}): RawPlan => ({
+    date: "2026-11-20", description: " Trivia ", peopleIds: ["p_me", "p_alex"], sourceMessageIds: ["m1"], ...o,
+  });
+
+  it("accepts a concrete future plan and cleans it up (dollars to cents in code)", () => {
+    expect(acceptMessagePlan(plan({ perPersonAmountDollars: 12.5, time: "19:30", venue: " Hole in the Wall " }), ctx)).toEqual({
+      ok: true,
+      plan: { date: "2026-11-20", time: "19:30", description: "Trivia", venue: "Hole in the Wall", peopleIds: ["p_me", "p_alex"], perPersonCents: 1250, sourceMessageIds: ["m1"] },
+    });
+  });
+  it("rejects bad, past, today and far-future dates", () => {
+    expect(acceptMessagePlan(plan({ date: "next friday" }), ctx)).toEqual({ ok: false, reason: "bad_date" });
+    expect(acceptMessagePlan(plan({ date: "2026-02-30" }), ctx)).toEqual({ ok: false, reason: "bad_date" });
+    expect(acceptMessagePlan(plan({ date: "2026-10-24" }), ctx)).toEqual({ ok: false, reason: "not_future" });
+    expect(acceptMessagePlan(plan({ date: "2026-10-25" }), ctx)).toEqual({ ok: false, reason: "not_future" });
+    expect(acceptMessagePlan(plan({ date: "2027-06-01" }), ctx)).toEqual({ ok: false, reason: "too_far" });
+  });
+  it("rejects plans a friend is paying for, but not ones the user pays for", () => {
+    expect(acceptMessagePlan(plan({ payerId: "p_alex" }), ctx)).toEqual({ ok: false, reason: "friend_paying" });
+    expect(acceptMessagePlan(plan({ payerId: "p_me" }), ctx).ok).toBe(true);
+  });
+  it("rejects hallucinated sources and plans with no known friend; drops unknown people", () => {
+    expect(acceptMessagePlan(plan({ sourceMessageIds: ["nope"] }), ctx)).toEqual({ ok: false, reason: "no_source" });
+    expect(acceptMessagePlan(plan({ peopleIds: ["p_me"] }), ctx)).toEqual({ ok: false, reason: "no_friend" });
+    expect(acceptMessagePlan(plan({ peopleIds: ["p_me", "p_ghost"] }), ctx)).toEqual({ ok: false, reason: "no_friend" });
+    const ok = acceptMessagePlan(plan({ peopleIds: ["p_me", "p_alex", "p_ghost"], sourceMessageIds: ["m1", "nope", "m2"] }), ctx);
+    expect(ok.ok && ok.plan).toMatchObject({ peopleIds: ["p_me", "p_alex"], sourceMessageIds: ["m1", "m2"] });
+  });
+  it("ignores a malformed time and a non-positive price", () => {
+    const r = acceptMessagePlan(plan({ time: "7pm", perPersonAmountDollars: 0 }), ctx);
+    expect(r.ok && r.plan).toMatchObject({ time: null, perPersonCents: null });
+  });
+});
+
+describe("mergePlans", () => {
+  const src = (o: Partial<PlanSource> & Pick<PlanSource, "ref" | "source">): PlanSource => ({
+    title: "x", date: "2026-11-07", time: null, peopleIds: ["p_me", "p_alex"], statedPerPersonCents: null, evidence: `from ${o.source}`, ...o,
+  });
+  it("same day with a friend in common is one plan; the calendar entry wins and the chat's price is kept", () => {
+    const out = mergePlans([
+      src({ ref: "chat1", source: "message", title: "concert", statedPerPersonCents: 5900, evidence: "chat says $59" }),
+      src({ ref: "cal1", source: "calendar", title: "Khruangbin", evidence: "calendar entry" }),
+    ]);
+    expect(out).toEqual([expect.objectContaining({ ref: "cal1", title: "Khruangbin", source: "calendar", statedPerPersonCents: 5900, evidence: "calendar entry chat says $59" })]);
+  });
+  it("keeps the calendar's own price when both have one", () => {
+    const out = mergePlans([src({ ref: "c", source: "calendar", statedPerPersonCents: 4000 }), src({ ref: "m", source: "message", statedPerPersonCents: 5000 })]);
+    expect(out[0]!.statedPerPersonCents).toBe(4000);
+  });
+  it("different days, or no friend in common, stay separate; output is ordered by date", () => {
+    const out = mergePlans([
+      src({ ref: "b", source: "message", date: "2026-11-20" }),
+      src({ ref: "a", source: "calendar", date: "2026-11-07" }),
+      src({ ref: "c", source: "message", date: "2026-11-07", peopleIds: ["p_me", "p_sam"] }),
+    ]);
+    expect(out.map((p) => p.ref)).toEqual(["a", "c", "b"]);
+  });
+  it("two chat mentions of one plan collapse too", () => {
+    expect(mergePlans([src({ ref: "m1", source: "message" }), src({ ref: "m2", source: "message" })])).toHaveLength(1);
+  });
+});
+
+describe("planFinder prompt", () => {
+  const input = { asOf: "2026-10-25", threadId: "weekendplans_plans1", threadTitle: "Chat with Alex", people: [{ id: "p_me", name: "Me" }], messages: [] };
+  it("has a stable fixture key and states today, the output shape and the exclusions", () => {
+    expect(planFinder.fixtureKey(input)).toBe("2026-10-25__weekendplans-plans1");
+    const text = planFinder.render(input);
+    expect(text).toContain("Today is 2026-10-25");
+    expect(text).toContain("hypotheticals");
+    expect(text).toContain("payerId");
+    expect(text).toContain("Never do arithmetic");
+  });
+  it("its schema accepts a minimal plan and rejects a plan with no date", () => {
+    expect(planFinder.schema.safeParse({ plans: [{ date: "2026-11-20", description: "x", peopleIds: ["p_me"], sourceMessageIds: ["m"] }] }).success).toBe(true);
+    expect(planFinder.schema.safeParse({ plans: [{ description: "x", peopleIds: [], sourceMessageIds: [] }] }).success).toBe(false);
   });
 });
