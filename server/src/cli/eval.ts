@@ -1,5 +1,6 @@
 // `pnpm eval` (BUILDPLAN Phase 7): run the pipeline in replay on a fresh seed, compare with ground truth
-// (attendee accuracy, payer accuracy, per-friend balance error). Exits 1 if any friend total differs.
+// (attendee accuracy, payer accuracy, per-friend balance error). Exits 1 if any friend total differs (replay only).
+// `pnpm eval --llm live` runs real Gemini instead (needs GEMINI_API_KEY) and only reports.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,13 +12,15 @@ import { runPipeline } from "../pipeline/run";
 import { writeSeed } from "../seed/write";
 import { sourcesFromDir } from "../sources";
 
+const llmMode = process.argv.includes("live") ? "live" : "replay";
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sark-eval-"));
 const { seed } = writeSeed(tmp);
 const truth = seed.truth;
 
 const db = createDb("pglite://memory");
 await migrate(db);
-await runPipeline(db, { llmMode: "replay", sources: sourcesFromDir(path.join(tmp, "generated")) });
+console.log(`eval: llm=${llmMode}`);
+await runPipeline(db, { llmMode, sources: sourcesFromDir(path.join(tmp, "generated")) });
 
 // ---- attendees + payers: match each truth event to the pipeline event on the same day with the best attendee overlap
 const { rows: events } = await db.query<{ id: string; d: string; attendee_ids: string[] }>(
@@ -68,7 +71,9 @@ for (const f of friends.sort((a, b) => a.personId.localeCompare(b.personId))) {
 for (const id of Object.keys(truth.friends)) if (!friends.some((f) => f.personId === id)) { bad++; console.log(`${id}: missing`); }
 await db.end();
 fs.rmSync(tmp, { recursive: true, force: true });
-if (bad) {
+if (bad && llmMode === "live") {
+  console.log(`\neval (live): ${bad} friend(s) differ from truth (report only)`);
+} else if (bad) {
   console.error(`\neval FAILED: ${bad} friend(s) differ from truth`);
   process.exit(1);
 }

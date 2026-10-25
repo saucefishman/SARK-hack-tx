@@ -123,7 +123,7 @@ describe("pushNessie", () => {
       createAccount: async (c) => (calls.push(`account:${c}`), id("A")),
       createMerchant: async (b) => (calls.push(`merchant:${b.name}`), id("M")),
       createPurchase: async (a, b) => (calls.push(`purchase:${a}:${b.merchant_id}`), id("P")),
-      createTransfer: async (a, b) => (calls.push(`transfer:${a}:${b.payee_id}`), id("T")),
+      createTransfer: async (a, b) => (calls.push(`transfer:${a}:${b.description}`), id("T")),
     };
     const { nessie } = generateSeed(scenario);
     await pushNessie(nessie, w);

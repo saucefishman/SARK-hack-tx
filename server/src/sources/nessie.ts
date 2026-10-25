@@ -27,9 +27,9 @@ export interface NessieCreateCustomer {
 export interface NessieWriter {
   createCustomer(body: NessieCreateCustomer): Promise<string>;
   createAccount(customerId: string, body: { type: string; nickname: string; rewards: number; balance: number }): Promise<string>;
-  createMerchant(body: { name: string; category: string[] }): Promise<string>;
+  createMerchant(body: { name: string; category: string }): Promise<string>; // live API: category is a string
   createPurchase(accountId: string, body: Omit<NessiePurchase, "_id" | "payer_id">): Promise<string>;
-  createTransfer(accountId: string, body: Omit<NessieTransfer, "_id" | "payer_id">): Promise<string>;
+  createTransfer(accountId: string, body: { transaction_date: string; status: string; amount: number; description: string }): Promise<string>;
 }
 
 export class NessieHttpClient implements NessieSource, NessieWriter {
@@ -41,6 +41,7 @@ export class NessieHttpClient implements NessieSource, NessieWriter {
 
   private async get<T>(p: string): Promise<T> {
     const res = await fetch(this.url(p));
+    if (res.status === 404) return [] as T; // live API answers 404 for an empty list ("No transfers found")
     if (!res.ok) throw new Error(`Nessie GET ${p} failed: ${res.status} ${await res.text()}`);
     return (await res.json()) as T;
   }
@@ -60,15 +61,25 @@ export class NessieHttpClient implements NessieSource, NessieWriter {
 
   getCustomers() { return this.get<NessieCustomer[]>(NESSIE_PATHS.customers); }
   getAccounts() { return this.get<NessieAccount[]>(NESSIE_PATHS.accounts); }
-  getMerchants() { return this.get<NessieMerchant[]>(NESSIE_PATHS.merchants); }
+  async getMerchants(): Promise<NessieMerchant[]> {
+    // Live API stores category as a string; normalize to the documented string[] shape.
+    const rows = await this.get<(Omit<NessieMerchant, "category"> & { category: string | string[] })[]>(NESSIE_PATHS.merchants);
+    return rows.map((m) => ({ ...m, category: Array.isArray(m.category) ? m.category : m.category ? m.category.split(", ") : [] }));
+  }
   getPurchases(accountId: string) { return this.get<NessiePurchase[]>(NESSIE_PATHS.accountPurchases(accountId)); }
-  getTransfers(accountId: string) { return this.get<NessieTransfer[]>(NESSIE_PATHS.accountTransfers(accountId)); }
+  async getTransfers(accountId: string): Promise<NessieTransfer[]> {
+    // Live API returns `id` (not `_id`) and no payer/payee; the listing account is the payer.
+    const rows = await this.get<(Partial<NessieTransfer> & { id?: string })[]>(NESSIE_PATHS.accountTransfers(accountId));
+    return rows.map((t) => ({
+      ...t, _id: t._id ?? t.id!, payer_id: t.payer_id ?? accountId, payee_id: t.payee_id ?? "", medium: t.medium ?? "balance",
+    }) as NessieTransfer);
+  }
 
   createCustomer(body: NessieCreateCustomer) { return this.create(NESSIE_PATHS.customers, body); }
   createAccount(customerId: string, body: Parameters<NessieWriter["createAccount"]>[1]) {
     return this.create(NESSIE_PATHS.customerAccounts(customerId), body);
   }
-  createMerchant(body: { name: string; category: string[] }) { return this.create(NESSIE_PATHS.merchants, body); }
+  createMerchant(body: { name: string; category: string }) { return this.create(NESSIE_PATHS.merchants, body); }
   createPurchase(accountId: string, body: Parameters<NessieWriter["createPurchase"]>[1]) {
     return this.create(NESSIE_PATHS.accountPurchases(accountId), body);
   }

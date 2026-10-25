@@ -56,7 +56,7 @@ describe("file sources", () => {
     await c.getPurchases("acc1");
     expect(fetchMock.mock.calls[0][0]).toBe(`https://nessie.test${NESSIE_PATHS.accountPurchases("acc1")}?key=K3Y`);
     expect(fetchMock.mock.calls[0][0]).toContain("/accounts/acc1/purchases");
-    const id = await c.createMerchant({ name: "Uchi", category: ["restaurant"] });
+    const id = await c.createMerchant({ name: "Uchi", category: "restaurant" });
     expect(id).toBe("new1");
     expect(fetchMock.mock.calls[1][1]?.method).toBe("POST");
   });

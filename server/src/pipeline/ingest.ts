@@ -183,7 +183,8 @@ export async function ingest(db: Db, src: IngestSources): Promise<IngestCounts> 
       if (seenTransfers.has(t._id)) continue;
       seenTransfers.add(t._id);
       const payerOwner = accountPerson.get(t.payer_id) ?? null;
-      const payeeOwner = accountPerson.get(t.payee_id) ?? null;
+      // Live Nessie transfers carry no payee: one listed on a friend's account is taken as sent to the user.
+      const payeeOwner = t.payee_id ? accountPerson.get(t.payee_id) ?? null : payerOwner && payerOwner !== userId ? userId : null;
       if (payerOwner !== userId && payeeOwner !== userId) continue; // not touching the user
       // Sender by account; if the sender account is unknown fall back to the friend named in the description.
       const named = t.description ? await findNamedFriend(db, t.description) : null;

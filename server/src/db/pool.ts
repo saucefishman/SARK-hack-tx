@@ -43,7 +43,11 @@ function pgliteDb(location: string): Db {
 }
 
 function pgDb(url: string): Db {
-  const pool = new pg.Pool({ connectionString: url });
+  // libpq semantics for sslmode (as psql): "require" encrypts without verifying the CA.
+  // Tiger Data serves a private Timescale CA, which node-pg's default verify-full rejects.
+  const u = new URL(url);
+  if (!u.searchParams.has("uselibpqcompat")) u.searchParams.set("uselibpqcompat", "true");
+  const pool = new pg.Pool({ connectionString: u.toString() });
   const fromClient = (c: pg.PoolClient | pg.Pool): Omit<Db, "tx" | "end"> => ({
     async query<T>(sql: string, params: unknown[] = []) {
       const res = await c.query(sql, params);
