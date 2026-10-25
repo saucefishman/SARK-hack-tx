@@ -1,11 +1,11 @@
 export const colors = {
-  bg: "#F5F6F8",
+  bg: "#FFFFFF",
   card: "#FFFFFF",
-  text: "#14171F",
-  muted: "#6B7280",
-  border: "#E5E7EB",
-  primary: "#4F46E5",
-  primarySoft: "#EEF2FF",
+  text: "#0B0B0B",
+  muted: "#9A9A9A",
+  border: "#E5E8DF",
+  primary: "#2464E8",
+  primarySoft: "#F6F6F6",
   green: "#15803D",
   greenSoft: "#DCFCE7",
   red: "#B91C1C",
@@ -13,7 +13,7 @@ export const colors = {
   amber: "#B45309",
   amberSoft: "#FEF3C7",
   grey: "#4B5563",
-  greySoft: "#E5E7EB",
+  greySoft: "#E5E8DF",
 };
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
-export const radius = { sm: 8, md: 14, pill: 999 };
+export const radius = { sm: 8, md: 12, pill: 999 };

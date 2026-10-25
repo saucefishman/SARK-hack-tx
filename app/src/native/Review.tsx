@@ -1,0 +1,439 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { ReviewItemDto } from "@sark/shared";
+import { useAnswerReview, useFriends, useReview } from "../api/hooks";
+import { EmptyState, ErrorState, Loading } from "../components/ui";
+import { reviewPresentation } from "../components/review-presentation";
+import { reviewAnswer, summarizeFriends } from "./ledger-presentation";
+import { AccountSheet } from "./AccountSheet";
+import {
+  Action,
+  Avatar,
+  NativeCanvas,
+  Blue,
+  Header,
+  Icon,
+  palette,
+  useReducedMotion,
+} from "./kit";
+
+function ReviewCard({ item }: { item: ReviewItemDto }) {
+  const reduced = useReducedMotion();
+  const progress = useRef(new Animated.Value(1)).current;
+  const animation = useRef<Animated.CompositeAnimation | null>(null);
+  const completion = useRef<(() => void) | null>(null);
+  const [height, setHeight] = useState(0);
+  const [exiting, setExiting] = useState(false);
+  useEffect(() => () => {
+    animation.current?.stop();
+    completion.current?.();
+  }, []);
+  const answer = useAnswerReview(() => {
+    if (reduced) return Promise.resolve();
+    setExiting(true);
+    return new Promise<void>(resolve => {
+      completion.current = resolve;
+      animation.current = Animated.timing(progress, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: false,
+      });
+      animation.current.start(() => {
+        completion.current = null;
+        resolve();
+      });
+    });
+  });
+  const [selected, setSelected] = useState<string[]>([]);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const content = reviewPresentation(item);
+  const multiple = item.kind === "attendees";
+  const busy = answer.isPending;
+  function toggle(id: string) {
+    setSelected((current) =>
+      multiple
+        ? current.includes(id)
+          ? current.filter((value) => value !== id)
+          : [...current, id]
+        : [id],
+    );
+  }
+  return (
+    <Animated.View pointerEvents={exiting ? "none" : "auto"} style={exiting ? {
+      height: progress.interpolate({inputRange:[0,1],outputRange:[0,height]}),
+      opacity: progress,
+      overflow: "hidden",
+      marginBottom: progress.interpolate({inputRange:[0,1],outputRange:[-12,0]}),
+      transform: [{translateY: progress.interpolate({inputRange:[0,1],outputRange:[-6,0]})}],
+    } : undefined}>
+    <View style={s.card} onLayout={event => { if (!exiting) setHeight(event.nativeEvent.layout.height); }}>
+      <View style={s.expense}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.expenseTitle}>{content.title}</Text>
+          {content.date && <Text style={s.date}>{content.date}</Text>}
+        </View>
+        {content.amount && <Text style={s.amount}>{content.amount}</Text>}
+      </View>
+      <View style={s.question}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.eyebrow}>
+            {content.eyebrow}
+          </Text>
+          <Text style={s.prompt}>{content.prompt}</Text>
+          <Text style={s.hint}>{content.hint}</Text>
+        </View>
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[
+            s.count,
+            selected.length > 0 && {
+              color: "#3d76c5",
+              backgroundColor: "#e0edff",
+            },
+          ]}
+        >
+          {selected.length
+            ? `${selected.length} selected`
+            : multiple
+              ? "Multiple"
+              : "Single"}
+        </Text>
+      </View>
+      {item.kind === "payer" && (
+        <View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: noteOpen }}
+            onPress={() => setNoteOpen(!noteOpen)}
+            hitSlop={5}
+          >
+            <Text style={s.noteToggle}>
+              {noteOpen ? "Hide original note" : "Original note"}
+            </Text>
+          </Pressable>
+          {noteOpen && <Text style={s.note}>{item.question}</Text>}
+        </View>
+      )}
+      <View style={s.options}>
+        {item.options?.map((person) => {
+          const on = selected.includes(person.personId);
+          return (
+            <Pressable
+              accessibilityRole={multiple ? "checkbox" : "radio"}
+              accessibilityLabel={person.name}
+              accessibilityState={{ checked: on, disabled: busy }}
+              disabled={busy}
+              key={person.personId}
+              onPress={() => toggle(person.personId)}
+              style={[s.option, on && s.optionOn]}
+            >
+              <Avatar name={person.name} size={28} />
+              <Text style={s.person} numberOfLines={1}>
+                {person.name}
+              </Text>
+              <View
+                style={[
+                  s.check,
+                  !multiple && { borderRadius: 8 },
+                  on && s.checked,
+                ]}
+              >
+                {on && <Icon name="check" size={11} color="#fff" />}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      {answer.isError && (
+        <Text accessibilityRole="alert" style={s.error}>
+          Couldn't save. Your selection is still here—try again.
+        </Text>
+      )}
+      <View style={s.actions}>
+        <View style={{ flex: 1 }}>
+          <Action
+            title={content.dismissLabel}
+            secondary
+            disabled={busy}
+            onPress={() =>
+              answer.mutate({ id: item.id, body: { dismiss: true } })
+            }
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Action
+            title={busy ? "Saving…" : "Confirm"}
+            disabled={!selected.length || busy}
+            onPress={() =>
+              answer.mutate({
+                id: item.id,
+                body: reviewAnswer(item, selected),
+              })
+            }
+          />
+        </View>
+      </View>
+    </View>
+    </Animated.View>
+  );
+}
+export default function Review() {
+  const query = useReview();
+  const friends = useFriends();
+  const insets = useSafeAreaInsets();
+  const [account, setAccount] = useState(false);
+  const { width } = useWindowDimensions();
+  const { owedCents: owed, owingCents: owe } = summarizeFriends(friends.data ?? []);
+  if (query.isLoading) return <Loading label="Loading reviews…" />;
+  if (query.isError)
+    return (
+      <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+    );
+  return (
+    <View style={s.screen}>
+      <NativeCanvas>
+        <ScrollView
+        showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 115 + insets.bottom }}
+          refreshControl={
+            <RefreshControl
+              refreshing={query.isRefetching}
+              onRefresh={() => void query.refetch()}
+              tintColor="#fff"
+            />
+          }
+        >
+          <Blue>
+            <Header onAccount={() => setAccount(true)} />
+            <View style={s.heading}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.title}>Review</Text>
+                <Text style={s.subtitle}>
+                  Finish the details. Keep things balanced.
+                </Text>
+              </View>
+              <Text style={s.pending}>{query.data?.length ?? 0} pending</Text>
+            </View>
+            <View style={s.lip} />
+          </Blue>
+          <View
+            style={[
+              s.cards,
+              width >= 700 && { flexDirection: "row", flexWrap: "wrap" },
+            ]}
+          >
+            {query.data?.length ? (
+              query.data.map((item) => (
+                <View
+                  key={item.id}
+                  style={{ width: width >= 700 ? "48.5%" : "100%" }}
+                >
+                  <ReviewCard item={item} />
+                </View>
+              ))
+            ) : (
+              <View style={s.empty}>
+                <EmptyState
+                  title="You're all caught up"
+                  body="No activity left to review."
+                />
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </NativeCanvas>
+      <AccountSheet
+        visible={account}
+        onClose={() => setAccount(false)}
+        owed={owed}
+        owe={owe}
+        available={friends.isSuccess}
+        failed={friends.isError}
+        onRetry={() => void friends.refetch()}
+      />
+    </View>
+  );
+}
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.bg },
+  heading: {
+    paddingHorizontal: 24,
+    paddingBottom: 25,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  title: {
+    fontFamily: "Poppins",
+    fontSize: 29,
+    letterSpacing: -0.8,
+    color: "#fff",
+  },
+  subtitle: {
+    fontFamily: "Inter",
+    fontSize: 11,
+    lineHeight: 18,
+    color: "#d4e4fc",
+    marginTop: 4,
+  },
+  pending: {
+    fontFamily: "Inter",
+    fontSize: 10,
+    color: "#fff",
+    backgroundColor: "#ffffff20",
+    borderWidth: 1,
+    borderColor: "#ffffff55",
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  lip: {
+    height: 21,
+    borderTopLeftRadius: 31,
+    borderTopRightRadius: 31,
+    backgroundColor: palette.bg,
+  },
+  cards: { paddingHorizontal: 18, gap: 12 },
+  card: {
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e9eef7",
+  },
+  expense: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    borderBottomWidth: 1,
+    borderColor: "#edf1f7",
+    paddingBottom: 12,
+  },
+  expenseTitle: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    lineHeight: 23,
+    letterSpacing: -0.3,
+    color: palette.ink,
+  },
+  date: { fontFamily: "Inter", fontSize: 10, color: "#97a5b8", marginTop: 5 },
+  amount: {
+    fontFamily: "InterSemiBold",
+    fontSize: 16,
+    color: "#233954",
+    letterSpacing: -0.5,
+    paddingTop: 2,
+  },
+  question: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#e7eefb",
+    backgroundColor: "#eff5ff",
+    marginTop: 13,
+  },
+  eyebrow: {
+    fontFamily: "InterMedium",
+    fontSize: 7,
+    letterSpacing: 1.2,
+    color: "#7f9bc1",
+    marginBottom: 5,
+  },
+  prompt: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    lineHeight: 23,
+    letterSpacing: -0.35,
+    color: "#2d4668",
+  },
+  hint: {
+    fontFamily: "Inter",
+    fontSize: 9,
+    lineHeight: 15,
+    color: "#8b9fba",
+    marginTop: 4,
+  },
+  count: {
+    alignSelf: "flex-start",
+    fontFamily: "Inter",
+    fontSize: 8,
+    padding: 5,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: "#fff",
+    backgroundColor: "#ffffff88",
+    color: "#9aaec8",
+  },
+  noteToggle: {
+    fontFamily: "Inter",
+    fontSize: 10,
+    color: "#718bad",
+    marginTop: 9,
+  },
+  note: {
+    fontFamily: "Inter",
+    fontSize: 10,
+    lineHeight: 17,
+    color: "#8d9eb6",
+    backgroundColor: "#f5f8fc",
+    padding: 9,
+    borderRadius: 10,
+    marginTop: 6,
+  },
+  options: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 10,
+    marginBottom: 13,
+  },
+  option: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minHeight: 46,
+    padding: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#e9eef6",
+    backgroundColor: "#f6f9fe",
+  },
+  optionOn: { borderColor: "#b0cbf0", backgroundColor: "#e4eeff" },
+  person: { flex: 1, fontFamily: "Poppins", fontSize: 10, color: "#3865a7" },
+  check: {
+    width: 14,
+    height: 14,
+    borderWidth: 1,
+    borderColor: "#cfdbeb",
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checked: { backgroundColor: "#3a79d8", borderColor: "#3a79d8" },
+  actions: { flexDirection: "row", gap: 12 },
+  error: {
+    fontFamily: "Inter",
+    fontSize: 11,
+    lineHeight: 17,
+    color: "#a35151",
+    backgroundColor: "#fff3f3",
+    padding: 10,
+    borderRadius: 11,
+    marginBottom: 10,
+  },
+  empty: { flex: 1, minHeight: 220, backgroundColor: "#fff", borderRadius: 24 },
+});
