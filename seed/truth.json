@@ -1,0 +1,802 @@
+{
+  "friends": {
+    "p_alex": {
+      "spentOnYouCents": 3000,
+      "youSpentOnThemCents": 17034,
+      "balanceCents": 11034,
+      "possibleCents": 7500
+    },
+    "p_sam": {
+      "spentOnYouCents": 5150,
+      "youSpentOnThemCents": 11600,
+      "balanceCents": 6250,
+      "possibleCents": 0
+    },
+    "p_jordan": {
+      "spentOnYouCents": 4600,
+      "youSpentOnThemCents": 11800,
+      "balanceCents": 1200,
+      "possibleCents": 0
+    },
+    "p_riley": {
+      "spentOnYouCents": 750,
+      "youSpentOnThemCents": 18633,
+      "balanceCents": 17883,
+      "possibleCents": 0
+    }
+  },
+  "events": [
+    {
+      "key": "s05-ember-history-1",
+      "date": "2026-07-02",
+      "description": "Drinks at Ember Bar",
+      "attendeeIds": [
+        "p_alex",
+        "p_jordan",
+        "p_me"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 6000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 6000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        5
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_alex",
+          "amountCents": 2000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_jordan",
+          "amountCents": 2000,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s09-grocery",
+      "date": "2026-07-05",
+      "description": "Whole Foods grocery run (solo)",
+      "attendeeIds": [
+        "p_me"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 6400,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 6400,
+      "sourceCount": 1,
+      "relevant": false,
+      "scenarios": [
+        9
+      ],
+      "ledger": []
+    },
+    {
+      "key": "s01-uchi-dinner",
+      "date": "2026-07-09",
+      "description": "Dinner at Uchi",
+      "attendeeIds": [
+        "p_alex",
+        "p_jordan",
+        "p_me",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 12000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 12000,
+      "sourceCount": 3,
+      "relevant": true,
+      "scenarios": [
+        1,
+        2,
+        3,
+        11
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_alex",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_jordan",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_sam",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s04-sam-lenoir",
+      "date": "2026-07-18",
+      "description": "Dinner at Lenoir",
+      "attendeeIds": [
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "amountCents": 8400,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 8400,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        4,
+        11
+      ],
+      "ledger": [
+        {
+          "payerId": "p_sam",
+          "beneficiaryId": "p_me",
+          "amountCents": 2800,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s05-ember-history-2",
+      "date": "2026-07-23",
+      "description": "Drinks at Ember Bar",
+      "attendeeIds": [
+        "p_alex",
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 9000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 9000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        5
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_alex",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s08-lunch",
+      "date": "2026-08-01",
+      "description": "Lunch at Torchy's Tacos",
+      "attendeeIds": [
+        "p_alex",
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 4500,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 4500,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        8
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_alex",
+          "amountCents": 1500,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 1500,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s08-dinner",
+      "date": "2026-08-01",
+      "description": "Dinner at Franklin BBQ",
+      "attendeeIds": [
+        "p_jordan",
+        "p_me",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 6000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 6000,
+      "sourceCount": 3,
+      "relevant": true,
+      "scenarios": [
+        8
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_jordan",
+          "amountCents": 2000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_sam",
+          "amountCents": 2000,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s05-ember-history-3",
+      "date": "2026-08-06",
+      "description": "Drinks at Ember Bar",
+      "attendeeIds": [
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 7200,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 7200,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        5
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 2400,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_sam",
+          "amountCents": 2400,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s11-taco-night",
+      "date": "2026-08-09",
+      "description": "Tacos at Torchy's",
+      "attendeeIds": [
+        "p_alex",
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 4800,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 4800,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        11
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_alex",
+          "amountCents": 1200,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 1200,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_sam",
+          "amountCents": 1200,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s10-txn-only",
+      "date": "2026-08-14",
+      "description": "Kemuri Tatsu-ya (transaction only)",
+      "attendeeIds": [
+        "p_me"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 7000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 7000,
+      "sourceCount": 1,
+      "relevant": false,
+      "scenarios": [
+        10
+      ],
+      "ledger": []
+    },
+    {
+      "key": "s12-nickname-burgers",
+      "date": "2026-08-16",
+      "description": "Lunch at Mighty Fine Burgers",
+      "attendeeIds": [
+        "p_jordan",
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 5400,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 5400,
+      "sourceCount": 3,
+      "relevant": true,
+      "scenarios": [
+        12
+      ],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_jordan",
+          "amountCents": 1800,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 1800,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s05-jordan-got-this",
+      "date": "2026-08-20",
+      "description": "Drinks at Ember Bar",
+      "attendeeIds": [
+        "p_alex",
+        "p_jordan",
+        "p_me"
+      ],
+      "payers": [
+        {
+          "personId": "p_jordan",
+          "amountCents": 7200,
+          "basis": "estimated"
+        }
+      ],
+      "totalCents": 7200,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        5
+      ],
+      "ledger": [
+        {
+          "payerId": "p_jordan",
+          "beneficiaryId": "p_me",
+          "amountCents": 2400,
+          "kind": "covered",
+          "basis": "estimated"
+        }
+      ]
+    },
+    {
+      "key": "x-alex-brunch",
+      "date": "2026-08-23",
+      "description": "Brunch",
+      "attendeeIds": [
+        "p_alex",
+        "p_me",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "amountCents": 9000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 9000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_alex",
+          "beneficiaryId": "p_me",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s06-concert",
+      "date": "2026-08-29",
+      "description": "Concert at Moody Center",
+      "attendeeIds": [
+        "p_alex",
+        "p_jordan",
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "amountCents": 30000,
+          "basis": "assumed"
+        }
+      ],
+      "totalCents": 30000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        6
+      ],
+      "ledger": [
+        {
+          "payerId": "p_alex",
+          "beneficiaryId": "p_me",
+          "amountCents": 7500,
+          "kind": "covered",
+          "basis": "assumed"
+        }
+      ]
+    },
+    {
+      "key": "x-jordan-pizza",
+      "date": "2026-09-05",
+      "description": "Pizza night at Jordan's",
+      "attendeeIds": [
+        "p_jordan",
+        "p_me",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_jordan",
+          "amountCents": 6600,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 6600,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_jordan",
+          "beneficiaryId": "p_me",
+          "amountCents": 2200,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "s07-two-payers",
+      "date": "2026-09-08",
+      "description": "Dinner at Odd Duck",
+      "attendeeIds": [
+        "p_alex",
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "amountCents": 6000,
+          "basis": "confirmed"
+        },
+        {
+          "personId": "p_riley",
+          "amountCents": 4000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 10000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [
+        7
+      ],
+      "ledger": [
+        {
+          "payerId": "p_riley",
+          "beneficiaryId": "p_me",
+          "amountCents": 750,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_sam",
+          "beneficiaryId": "p_me",
+          "amountCents": 1750,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "x-uchi-again",
+      "date": "2026-09-12",
+      "description": "Dinner at Uchi",
+      "attendeeIds": [
+        "p_alex",
+        "p_jordan",
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 15000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 15000,
+      "sourceCount": 3,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_alex",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_jordan",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_sam",
+          "amountCents": 3000,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "x-alamo",
+      "date": "2026-09-19",
+      "description": "Movie at Alamo Drafthouse",
+      "attendeeIds": [
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 4800,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 4800,
+      "sourceCount": 3,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 2400,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "x-rounding",
+      "date": "2026-09-26",
+      "description": "Dinner at Comedor",
+      "attendeeIds": [
+        "p_alex",
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "amountCents": 10000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 10000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_alex",
+          "amountCents": 3334,
+          "kind": "covered",
+          "basis": "confirmed"
+        },
+        {
+          "payerId": "p_me",
+          "beneficiaryId": "p_riley",
+          "amountCents": 3333,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    },
+    {
+      "key": "x-sam-coffee",
+      "date": "2026-09-30",
+      "description": "Coffee with Sam",
+      "attendeeIds": [
+        "p_me",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "amountCents": 1200,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 1200,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_sam",
+          "beneficiaryId": "p_me",
+          "amountCents": 600,
+          "kind": "covered",
+          "basis": "confirmed"
+        }
+      ]
+    }
+  ],
+  "repayments": [
+    {
+      "payerId": "p_alex",
+      "beneficiaryId": "p_me",
+      "amountCents": 3000,
+      "via": "message",
+      "date": "2026-07-12",
+      "eventKey": "s01-uchi-dinner"
+    },
+    {
+      "payerId": "p_sam",
+      "beneficiaryId": "p_me",
+      "amountCents": 3000,
+      "via": "nessie",
+      "date": "2026-07-13",
+      "eventKey": "s01-uchi-dinner"
+    },
+    {
+      "payerId": "p_me",
+      "beneficiaryId": "p_sam",
+      "amountCents": 2800,
+      "via": "nessie",
+      "date": "2026-07-25",
+      "eventKey": "s04-sam-lenoir"
+    },
+    {
+      "payerId": "p_jordan",
+      "beneficiaryId": "p_me",
+      "amountCents": 6000,
+      "via": "message",
+      "date": "2026-09-14",
+      "eventKey": "x-uchi-again"
+    }
+  ],
+  "reviewItems": [
+    {
+      "kind": "attendees",
+      "eventKey": "s10-txn-only",
+      "nessieId": "pur_s10-txn-only"
+    },
+    {
+      "kind": "payer",
+      "eventKey": "s06-concert"
+    }
+  ],
+  "unaccountedCents": 0
+}

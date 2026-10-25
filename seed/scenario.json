@@ -1,0 +1,1466 @@
+{
+  "version": 1,
+  "userId": "p_me",
+  "note": "Times are UTC literals. Single source of truth for seed/generated/* and seed/truth.json (see server/src/seed/generate.ts).",
+  "people": [
+    {
+      "id": "p_me",
+      "displayName": "Me",
+      "isUser": true,
+      "aliases": [
+        {
+          "kind": "display_name",
+          "value": "Me"
+        },
+        {
+          "kind": "display_name",
+          "value": "Me Demo"
+        },
+        {
+          "kind": "email",
+          "value": "me@example.com"
+        },
+        {
+          "kind": "nickname",
+          "value": "Mo"
+        }
+      ]
+    },
+    {
+      "id": "p_alex",
+      "displayName": "Alex",
+      "isUser": false,
+      "aliases": [
+        {
+          "kind": "display_name",
+          "value": "Alex"
+        },
+        {
+          "kind": "display_name",
+          "value": "Alex Chen"
+        },
+        {
+          "kind": "email",
+          "value": "alex.chen@example.com"
+        },
+        {
+          "kind": "nickname",
+          "value": "Lex"
+        }
+      ]
+    },
+    {
+      "id": "p_sam",
+      "displayName": "Sam",
+      "isUser": false,
+      "aliases": [
+        {
+          "kind": "display_name",
+          "value": "Sam"
+        },
+        {
+          "kind": "display_name",
+          "value": "Sam Okafor"
+        },
+        {
+          "kind": "email",
+          "value": "sam.okafor@example.com"
+        },
+        {
+          "kind": "nickname",
+          "value": "Sammy"
+        }
+      ]
+    },
+    {
+      "id": "p_jordan",
+      "displayName": "Jordan",
+      "isUser": false,
+      "aliases": [
+        {
+          "kind": "display_name",
+          "value": "Jordan"
+        },
+        {
+          "kind": "display_name",
+          "value": "Jordan Reyes"
+        },
+        {
+          "kind": "email",
+          "value": "jordan.reyes@example.com"
+        },
+        {
+          "kind": "nickname",
+          "value": "JT"
+        }
+      ]
+    },
+    {
+      "id": "p_riley",
+      "displayName": "Riley",
+      "isUser": false,
+      "aliases": [
+        {
+          "kind": "display_name",
+          "value": "Riley"
+        },
+        {
+          "kind": "display_name",
+          "value": "Riley Nakamura"
+        },
+        {
+          "kind": "email",
+          "value": "riley.nakamura@example.com"
+        },
+        {
+          "kind": "nickname",
+          "value": "Riles"
+        }
+      ]
+    }
+  ],
+  "threads": [
+    {
+      "key": "dmalex01",
+      "title": "Alex",
+      "participants": [
+        "p_me",
+        "p_alex"
+      ]
+    },
+    {
+      "key": "dmsam001",
+      "title": "Sam",
+      "participants": [
+        "p_me",
+        "p_sam"
+      ]
+    },
+    {
+      "key": "dmjord01",
+      "title": "Jordan",
+      "participants": [
+        "p_me",
+        "p_jordan"
+      ]
+    },
+    {
+      "key": "dmriley1",
+      "title": "Riley",
+      "participants": [
+        "p_me",
+        "p_riley"
+      ]
+    },
+    {
+      "key": "uchicrew",
+      "title": "Uchi Crew",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_jordan"
+      ]
+    },
+    {
+      "key": "squad001",
+      "title": "The Squad",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_jordan",
+        "p_riley"
+      ]
+    },
+    {
+      "key": "ember001",
+      "title": "Ember Regulars",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_jordan"
+      ]
+    },
+    {
+      "key": "lenoir01",
+      "title": "Lenoir Night",
+      "participants": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ]
+    },
+    {
+      "key": "tacos001",
+      "title": "Taco Lunch",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ]
+    },
+    {
+      "key": "franklin",
+      "title": "Franklin BBQ",
+      "participants": [
+        "p_me",
+        "p_sam",
+        "p_jordan"
+      ]
+    },
+    {
+      "key": "burgers1",
+      "title": "Burger Run",
+      "participants": [
+        "p_me",
+        "p_riley",
+        "p_jordan"
+      ]
+    },
+    {
+      "key": "brunch01",
+      "title": "Sunday Brunch",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_sam"
+      ]
+    },
+    {
+      "key": "pizza001",
+      "title": "Pizza Night",
+      "participants": [
+        "p_me",
+        "p_jordan",
+        "p_sam"
+      ]
+    },
+    {
+      "key": "comedor1",
+      "title": "Comedor",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "key": "s05-ember-history-1",
+      "date": "2026-07-02",
+      "time": "20:00",
+      "description": "Drinks at Ember Bar",
+      "scenarios": [
+        5
+      ],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 60,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Ember Bar",
+        "category": [
+          "bar"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "ember001",
+          "sender": "p_me",
+          "at": "2026-07-02T18:40",
+          "text": "Ember tonight? 8pm"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_alex",
+          "at": "2026-07-02T18:42",
+          "text": "in"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_jordan",
+          "at": "2026-07-02T18:50",
+          "text": "in, see you both there"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_me",
+          "at": "2026-07-02T22:30",
+          "text": "Tab was $60 for the three of us, I got it"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_alex",
+          "at": "2026-07-02T22:41",
+          "text": "thanks!! next one's on me"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "Me paid via Nessie (txn + thread = 2 sources). History row #1 for scenario 5 (Ember Bar $60)."
+      }
+    },
+    {
+      "key": "s09-grocery",
+      "date": "2026-07-05",
+      "description": "Whole Foods grocery run (solo)",
+      "scenarios": [
+        9
+      ],
+      "attendees": [
+        "p_me"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 64,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Whole Foods",
+        "category": [
+          "grocery"
+        ]
+      },
+      "messages": [],
+      "expected": {
+        "relevant": false,
+        "note": "Solo purchase: attendees < 2, one source. Stored but excluded; no review item."
+      }
+    },
+    {
+      "key": "s01-uchi-dinner",
+      "date": "2026-07-09",
+      "time": "19:30",
+      "description": "Dinner at Uchi",
+      "scenarios": [
+        1,
+        2,
+        3,
+        11
+      ],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 120,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Uchi",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "uchicrew",
+          "sender": "p_me",
+          "at": "2026-07-09T17:05",
+          "text": "Uchi at 7:30, Alex Sam Jordan you all confirmed?"
+        },
+        {
+          "thread": "uchicrew",
+          "sender": "p_alex",
+          "at": "2026-07-09T17:09",
+          "text": "confirmed"
+        },
+        {
+          "thread": "uchicrew",
+          "sender": "p_sam",
+          "at": "2026-07-09T17:12",
+          "text": "yep"
+        },
+        {
+          "thread": "uchicrew",
+          "sender": "p_jordan",
+          "at": "2026-07-09T17:20",
+          "text": "see you there"
+        },
+        {
+          "thread": "uchicrew",
+          "sender": "p_me",
+          "at": "2026-07-09T22:15",
+          "text": "Great night. Put the whole thing on my card, $120"
+        },
+        {
+          "thread": "uchicrew",
+          "sender": "p_sam",
+          "at": "2026-07-09T22:20",
+          "text": "thanks for dinner, this was amazing 🍣"
+        },
+        {
+          "thread": "uchicrew",
+          "sender": "p_jordan",
+          "at": "2026-07-09T22:31",
+          "text": "thank you for dinner!"
+        }
+      ],
+      "calendar": {
+        "title": "Dinner at Uchi",
+        "description": "Dinner with Alex, Sam and Jordan",
+        "durationMin": 120
+      },
+      "repayments": [
+        {
+          "via": "message",
+          "payer": "p_alex",
+          "beneficiary": "p_me",
+          "amountDollars": 30,
+          "date": "2026-07-12",
+          "message": {
+            "thread": "dmalex01",
+            "sender": "p_alex",
+            "at": "2026-07-12T10:15",
+            "text": "sent you $30 for Uchi"
+          }
+        },
+        {
+          "via": "nessie",
+          "payer": "p_sam",
+          "beneficiary": "p_me",
+          "amountDollars": 30,
+          "date": "2026-07-13",
+          "description": "Sam - Uchi dinner"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 1 happy path: $120/4 = $30 each; Alex repays by message (2), Sam by Nessie transfer (3). Jordan has not repaid."
+      }
+    },
+    {
+      "key": "s04-sam-lenoir",
+      "date": "2026-07-18",
+      "time": "19:00",
+      "description": "Dinner at Lenoir",
+      "scenarios": [
+        4,
+        11
+      ],
+      "attendees": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_sam",
+          "amountDollars": 84,
+          "basis": "confirmed"
+        }
+      ],
+      "messages": [
+        {
+          "thread": "lenoir01",
+          "sender": "p_sam",
+          "at": "2026-07-18T16:00",
+          "text": "Lenoir tonight, you and Riley right?"
+        },
+        {
+          "thread": "lenoir01",
+          "sender": "p_riley",
+          "at": "2026-07-18T16:04",
+          "text": "yes!"
+        },
+        {
+          "thread": "lenoir01",
+          "sender": "p_sam",
+          "at": "2026-07-18T21:50",
+          "text": "dinner's on me, was $84"
+        },
+        {
+          "thread": "lenoir01",
+          "sender": "p_me",
+          "at": "2026-07-18T21:55",
+          "text": "you didn't have to!! thank you"
+        },
+        {
+          "thread": "lenoir01",
+          "sender": "p_riley",
+          "at": "2026-07-18T22:05",
+          "text": "ha beats the $60 Ember tab Alex was telling me about"
+        }
+      ],
+      "calendar": {
+        "title": "Dinner at Lenoir",
+        "durationMin": 120
+      },
+      "repayments": [
+        {
+          "via": "nessie",
+          "payer": "p_me",
+          "beneficiary": "p_sam",
+          "amountDollars": 28,
+          "date": "2026-07-25",
+          "description": "Paying Sam back for Lenoir"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 4: Sam explicit with amount ($84/3 = $28), confirmed; evidence is messages + calendar. Riley's $60 Ember remark is a distractor (scenario 11). Me repays Sam by outgoing Nessie transfer."
+      }
+    },
+    {
+      "key": "s05-ember-history-2",
+      "date": "2026-07-23",
+      "time": "20:00",
+      "description": "Drinks at Ember Bar",
+      "scenarios": [
+        5
+      ],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 90,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Ember Bar",
+        "category": [
+          "bar"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-07-23T17:30",
+          "text": "Ember tonight? Alex and Riley I'm looking at you. Sam, Jordan you missed out"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_alex",
+          "at": "2026-07-23T17:35",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-07-23T17:36",
+          "text": "obviously"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-07-23T23:00",
+          "text": "$90 tab, paid, you two owe me $30 each lol"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "History row #2 for scenario 5 (Ember Bar $90). $90/3 = $30 each."
+      }
+    },
+    {
+      "key": "s08-lunch",
+      "date": "2026-08-01",
+      "time": "12:30",
+      "description": "Lunch at Torchy's Tacos",
+      "scenarios": [
+        8
+      ],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 45,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Torchy's Tacos",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "tacos001",
+          "sender": "p_alex",
+          "at": "2026-08-01T11:50",
+          "text": "Torchy's at 12:30?"
+        },
+        {
+          "thread": "tacos001",
+          "sender": "p_riley",
+          "at": "2026-08-01T11:52",
+          "text": "on my way"
+        },
+        {
+          "thread": "tacos001",
+          "sender": "p_me",
+          "at": "2026-08-01T14:05",
+          "text": "Lunch was $45, I'll get this one"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 8 (lunch half): same day as s08-dinner, different group. $45/3 = $15 each."
+      }
+    },
+    {
+      "key": "s08-dinner",
+      "date": "2026-08-01",
+      "time": "19:00",
+      "description": "Dinner at Franklin BBQ",
+      "scenarios": [
+        8
+      ],
+      "attendees": [
+        "p_me",
+        "p_sam",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 60,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Franklin BBQ",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "franklin",
+          "sender": "p_sam",
+          "at": "2026-08-01T18:10",
+          "text": "line is already 40 min"
+        },
+        {
+          "thread": "franklin",
+          "sender": "p_jordan",
+          "at": "2026-08-01T18:15",
+          "text": "worth it"
+        },
+        {
+          "thread": "franklin",
+          "sender": "p_me",
+          "at": "2026-08-01T21:20",
+          "text": "$60 for the three of us, done"
+        }
+      ],
+      "calendar": {
+        "title": "Dinner at Franklin BBQ",
+        "durationMin": 120
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 8 (dinner half). $60/3 = $20 each."
+      }
+    },
+    {
+      "key": "s05-ember-history-3",
+      "date": "2026-08-06",
+      "time": "20:00",
+      "description": "Drinks at Ember Bar",
+      "scenarios": [
+        5
+      ],
+      "attendees": [
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 72,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Ember Bar",
+        "category": [
+          "bar"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-08-06T19:00",
+          "text": "Ember? me and Sam are going"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-08-06T19:03",
+          "text": "I'll join you two"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-08-06T22:40",
+          "text": "tab was $72, got it"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "History row #3 for scenario 5 (Ember Bar $72). Median of 60, 90, 72 = 72. $72/3 = $24 each."
+      }
+    },
+    {
+      "key": "s11-taco-night",
+      "date": "2026-08-09",
+      "time": "19:00",
+      "description": "Tacos at Torchy's",
+      "scenarios": [
+        11
+      ],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 48,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Torchy's Tacos",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-08-09T18:00",
+          "text": "Tacos tonight, Alex Sam Riley?"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_alex",
+          "at": "2026-08-09T18:02",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_sam",
+          "at": "2026-08-09T18:03",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-08-09T18:05",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-08-09T21:30",
+          "text": "$48 total, I got it"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_sam",
+          "at": "2026-08-09T21:34",
+          "text": "can't believe the Uchi bill was $120, this was way cheaper"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-08-09T21:40",
+          "text": "my parking was $25 lol"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 11: Sam's $120 (Uchi) and Riley's $25 parking must not change this event's $48 total. $48/4 = $12 each."
+      }
+    },
+    {
+      "key": "s10-txn-only",
+      "date": "2026-08-14",
+      "description": "Kemuri Tatsu-ya (transaction only)",
+      "scenarios": [
+        10
+      ],
+      "attendees": [
+        "p_me"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 70,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Kemuri Tatsu-ya",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [],
+      "expected": {
+        "relevant": false,
+        "note": "Scenario 10: $70 restaurant txn, no messages or calendar. Open attendees review item; no ledger rows.",
+        "review": [
+          {
+            "kind": "attendees"
+          }
+        ]
+      }
+    },
+    {
+      "key": "s12-nickname-burgers",
+      "date": "2026-08-16",
+      "time": "13:00",
+      "description": "Lunch at Mighty Fine Burgers",
+      "scenarios": [
+        12
+      ],
+      "attendees": [
+        "p_me",
+        "p_riley",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 54,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Mighty Fine Burgers",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "burgers1",
+          "sender": "p_riley",
+          "at": "2026-08-16T12:10",
+          "text": "omw, grabbing a café first",
+          "senderName": "Riles"
+        },
+        {
+          "thread": "burgers1",
+          "sender": "p_jordan",
+          "at": "2026-08-16T12:12",
+          "text": "saving us a table"
+        },
+        {
+          "thread": "burgers1",
+          "sender": "p_me",
+          "at": "2026-08-16T15:00",
+          "text": "Burgers were $54 total, I covered it"
+        },
+        {
+          "thread": "burgers1",
+          "sender": "p_riley",
+          "at": "2026-08-16T15:05",
+          "text": "thanks!!",
+          "senderName": "Riles"
+        }
+      ],
+      "calendar": {
+        "title": "Lunch: Mighty Fine",
+        "durationMin": 90,
+        "nameOnly": [
+          "p_riley"
+        ]
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 12: messages use sender 'Riles' (nickname), calendar lists 'Riley Nakamura' by name only. Both resolve to p_riley. Also carries the mojibake string (cafe). $54/3 = $18 each."
+      }
+    },
+    {
+      "key": "s05-jordan-got-this",
+      "date": "2026-08-20",
+      "time": "21:00",
+      "description": "Drinks at Ember Bar",
+      "scenarios": [
+        5
+      ],
+      "attendees": [
+        "p_me",
+        "p_jordan",
+        "p_alex"
+      ],
+      "payers": [
+        {
+          "person": "p_jordan",
+          "basis": "estimated",
+          "estimateFromMerchant": "Ember Bar"
+        }
+      ],
+      "messages": [
+        {
+          "thread": "ember001",
+          "sender": "p_jordan",
+          "at": "2026-08-20T19:30",
+          "text": "Ember tonight, Alex you in?"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_alex",
+          "at": "2026-08-20T19:33",
+          "text": "in"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_me",
+          "at": "2026-08-20T19:40",
+          "text": "me too"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_jordan",
+          "at": "2026-08-20T23:20",
+          "text": "I got this one, don't even look at the check"
+        },
+        {
+          "thread": "ember001",
+          "sender": "p_alex",
+          "at": "2026-08-20T23:22",
+          "text": "legend"
+        }
+      ],
+      "calendar": {
+        "title": "Drinks at Ember Bar",
+        "durationMin": 150
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 5: Jordan explicit, no amount. estimateBaseCost history step = median of Me's earlier Ember Bar purchases (60, 90, 72) = 72 -> total $72, $24 each, basis estimated."
+      }
+    },
+    {
+      "key": "x-alex-brunch",
+      "date": "2026-08-23",
+      "time": "11:00",
+      "description": "Brunch",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "person": "p_alex",
+          "amountDollars": 90,
+          "basis": "confirmed"
+        }
+      ],
+      "messages": [
+        {
+          "thread": "brunch01",
+          "sender": "p_alex",
+          "at": "2026-08-23T09:00",
+          "text": "Brunch at 11? Sam's coming"
+        },
+        {
+          "thread": "brunch01",
+          "sender": "p_sam",
+          "at": "2026-08-23T09:03",
+          "text": "yep"
+        },
+        {
+          "thread": "brunch01",
+          "sender": "p_me",
+          "at": "2026-08-23T09:10",
+          "text": "yes"
+        },
+        {
+          "thread": "brunch01",
+          "sender": "p_alex",
+          "at": "2026-08-23T13:15",
+          "text": "got brunch, $90 total, no worries"
+        },
+        {
+          "thread": "brunch01",
+          "sender": "p_me",
+          "at": "2026-08-23T13:20",
+          "text": "thank you!"
+        }
+      ],
+      "calendar": {
+        "title": "Brunch",
+        "durationMin": 90
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Friend paid with stated amount: $90/3 = $30, Alex -> Me, confirmed (extra, not a numbered scenario)."
+      }
+    },
+    {
+      "key": "s06-concert",
+      "date": "2026-08-29",
+      "time": "20:00",
+      "description": "Concert at Moody Center",
+      "scenarios": [
+        6
+      ],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_riley",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "person": "p_alex",
+          "basis": "assumed",
+          "perPersonDollars": 75
+        }
+      ],
+      "messages": [
+        {
+          "thread": "squad001",
+          "sender": "p_alex",
+          "at": "2026-08-29T16:30",
+          "text": "tix are in my wallet, were $75 each. meet at the gate 7:30"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-08-29T16:40",
+          "text": "so excited!!"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_jordan",
+          "at": "2026-08-29T16:42",
+          "text": "bringing earplugs"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-08-29T23:55",
+          "text": "that was unreal"
+        }
+      ],
+      "calendar": {
+        "title": "Khruangbin @ Moody Center",
+        "durationMin": 180
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 6 implicit: nobody states who paid. Assumed payer = the attendee who posted the ticket price (Alex); fallback rule: most frequent payer among past events. Total = $75 x 4 = $300, share $75 -> Alex -> Me 7500 basis assumed (possible, not in balance). Open payer review item. 'paid' counts an assumed payer.",
+        "review": [
+          {
+            "kind": "payer"
+          }
+        ]
+      }
+    },
+    {
+      "key": "x-jordan-pizza",
+      "date": "2026-09-05",
+      "time": "19:00",
+      "description": "Pizza night at Jordan's",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_jordan",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "person": "p_jordan",
+          "amountDollars": 66,
+          "basis": "confirmed"
+        }
+      ],
+      "messages": [
+        {
+          "thread": "pizza001",
+          "sender": "p_jordan",
+          "at": "2026-09-05T18:00",
+          "text": "pizza at mine, Sam you coming?"
+        },
+        {
+          "thread": "pizza001",
+          "sender": "p_sam",
+          "at": "2026-09-05T18:03",
+          "text": "yes"
+        },
+        {
+          "thread": "pizza001",
+          "sender": "p_jordan",
+          "at": "2026-09-05T21:30",
+          "text": "pizza and drinks, $66 total, I've got it"
+        },
+        {
+          "thread": "pizza001",
+          "sender": "p_me",
+          "at": "2026-09-05T21:35",
+          "text": "legend, thanks Jordan"
+        }
+      ],
+      "calendar": {
+        "title": "Pizza at Jordan's",
+        "durationMin": 180
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Friend paid with stated amount: $66/3 = $22 each, Jordan -> Me confirmed."
+      }
+    },
+    {
+      "key": "s07-two-payers",
+      "date": "2026-09-08",
+      "time": "19:30",
+      "description": "Dinner at Odd Duck",
+      "scenarios": [
+        7
+      ],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_sam",
+          "amountDollars": 60,
+          "basis": "confirmed"
+        },
+        {
+          "person": "p_riley",
+          "amountDollars": 40,
+          "basis": "confirmed"
+        }
+      ],
+      "messages": [
+        {
+          "thread": "squad001",
+          "sender": "p_sam",
+          "at": "2026-09-08T18:30",
+          "text": "Odd Duck tonight, 7:30. You, Alex, Riley and me"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_sam",
+          "at": "2026-09-08T22:30",
+          "text": "I put $60 on my card"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-09-08T22:32",
+          "text": "and I put $40 on mine for the rest"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_alex",
+          "at": "2026-09-08T22:35",
+          "text": "I'll sort you two out"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-09-08T22:36",
+          "text": "thanks both"
+        }
+      ],
+      "calendar": {
+        "title": "Dinner at Odd Duck",
+        "durationMin": 120
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Scenario 7: total 100, share 25. Surplus Sam +35, Riley +15, Me -25, Alex -25. Me owes Sam 25*35/50 = 17.50 and Riley 25*15/50 = 7.50. Alex's debts are friend-to-friend and ignored."
+      }
+    },
+    {
+      "key": "x-uchi-again",
+      "date": "2026-09-12",
+      "time": "19:30",
+      "description": "Dinner at Uchi",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_jordan",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 150,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Uchi",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-09-12T17:00",
+          "text": "Uchi again tonight?? everyone"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_alex",
+          "at": "2026-09-12T17:02",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_sam",
+          "at": "2026-09-12T17:03",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_jordan",
+          "at": "2026-09-12T17:04",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-09-12T17:05",
+          "text": "yes"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_me",
+          "at": "2026-09-12T22:30",
+          "text": "$150 for five, I got this one"
+        },
+        {
+          "thread": "squad001",
+          "sender": "p_riley",
+          "at": "2026-09-12T22:35",
+          "text": "you're the best"
+        }
+      ],
+      "calendar": {
+        "title": "Dinner at Uchi",
+        "durationMin": 120
+      },
+      "repayments": [
+        {
+          "via": "message",
+          "payer": "p_jordan",
+          "beneficiary": "p_me",
+          "amountDollars": 60,
+          "date": "2026-09-14",
+          "message": {
+            "thread": "dmjord01",
+            "sender": "p_jordan",
+            "at": "2026-09-14T09:00",
+            "text": "sent you $60 for both Uchi nights"
+          }
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "Me paid $150 for five: $30 each. Jordan's later $60 message settles both Uchi dinners (repayment not tied to one event)."
+      }
+    },
+    {
+      "key": "x-alamo",
+      "date": "2026-09-19",
+      "time": "20:00",
+      "description": "Movie at Alamo Drafthouse",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 48,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Alamo Drafthouse",
+        "category": [
+          "entertainment"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "dmriley1",
+          "sender": "p_riley",
+          "at": "2026-09-19T18:00",
+          "text": "movie tonight? alamo at 8"
+        },
+        {
+          "thread": "dmriley1",
+          "sender": "p_me",
+          "at": "2026-09-19T18:02",
+          "text": "yes"
+        },
+        {
+          "thread": "dmriley1",
+          "sender": "p_me",
+          "at": "2026-09-19T22:50",
+          "text": "tickets and food were $48 total, got it"
+        },
+        {
+          "thread": "dmriley1",
+          "sender": "p_riley",
+          "at": "2026-09-19T22:52",
+          "text": "thanks!"
+        }
+      ],
+      "calendar": {
+        "title": "Movie at Alamo Drafthouse",
+        "durationMin": 150
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Two-person event: $48/2 = $24."
+      }
+    },
+    {
+      "key": "x-rounding",
+      "date": "2026-09-26",
+      "time": "19:00",
+      "description": "Dinner at Comedor",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_me",
+          "amountDollars": 100,
+          "basis": "confirmed"
+        }
+      ],
+      "nessie": {
+        "merchant": "Comedor",
+        "category": [
+          "restaurant"
+        ]
+      },
+      "messages": [
+        {
+          "thread": "comedor1",
+          "sender": "p_me",
+          "at": "2026-09-26T17:00",
+          "text": "Comedor 7pm, Alex and Riley"
+        },
+        {
+          "thread": "comedor1",
+          "sender": "p_alex",
+          "at": "2026-09-26T17:02",
+          "text": "yes"
+        },
+        {
+          "thread": "comedor1",
+          "sender": "p_riley",
+          "at": "2026-09-26T17:03",
+          "text": "yes"
+        },
+        {
+          "thread": "comedor1",
+          "sender": "p_me",
+          "at": "2026-09-26T21:45",
+          "text": "$100 total, I got it"
+        }
+      ],
+      "expected": {
+        "relevant": true,
+        "note": "Rounding: 10000 cents / 3. Largest remainder, ties by person id asc: p_alex 3334, p_me 3333, p_riley 3333. Me -> Alex 3334, Me -> Riley 3333."
+      }
+    },
+    {
+      "key": "x-sam-coffee",
+      "date": "2026-09-30",
+      "time": "09:00",
+      "description": "Coffee with Sam",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "person": "p_sam",
+          "amountDollars": 12,
+          "basis": "confirmed"
+        }
+      ],
+      "messages": [
+        {
+          "thread": "dmsam001",
+          "sender": "p_sam",
+          "at": "2026-09-30T08:30",
+          "text": "coffee? I'm already here"
+        },
+        {
+          "thread": "dmsam001",
+          "sender": "p_sam",
+          "at": "2026-09-30T10:00",
+          "text": "got our coffees, $12 total"
+        },
+        {
+          "thread": "dmsam001",
+          "sender": "p_me",
+          "at": "2026-09-30T10:05",
+          "text": "thanks!"
+        }
+      ],
+      "calendar": {
+        "title": "Coffee with Sam",
+        "durationMin": 60
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Friend paid, stated amount: $12/2 = $6, Sam -> Me confirmed."
+      }
+    }
+  ]
+}

@@ -79,7 +79,17 @@ The council agreed on the first four points independently.
 | `event_payer` | event_id, person_id, amount?, basis (confirmed / assumed / estimated), evidence_message_id?, txn_id? | One row per person who paid part of the bill. `confirmed` = Nessie txn or explicit message. `assumed` = best guess at who covered the user, awaiting confirmation. `estimated` = payer known, amount guessed. |
 | `event_source` | event_id, proto_event_id | Provenance. |
 | `ledger_entry` | id, event_id, payer_id, beneficiary_id, amount (≥0), kind (covered / repayment / unaccounted), basis (confirmed / assumed / estimated), evidence_message_id? | Directional: "payer spent `amount` on beneficiary". Source of truth. Per friend F: `spent_on_you` = covered rows F→user; `you_spent_on_them` = covered rows user→F; `balance = you_spent_on_them − spent_on_you`, adjusted by repayment rows. Only `confirmed` and `estimated` rows count toward balance; `assumed` rows show as "possible". |
-| `review_item` | id, txn_id / event_id, question, answer?, status | The "what is this?" queue. |
+| `review_item` | id, kind (alias / attendees / payer), txn_id / event_id, question, option_ids[], answer?, status | The "what is this?" queue. |
+| `llm_cache` (implementation only) | key, model, prompt_id, response, created_at | Gemini record/replay cache. Key = sha256(prompt id + version + model + canonical input). |
+
+Implementation notes (Phase 0, authoritative DDL in `server/migrations/001_init.sql`, types in `packages/shared`):
+- Money columns are integer cents: `txn.amount_cents`, `event.total_cents`, `event_payer.amount_cents`, `ledger_entry.amount_cents`.
+- Ids are text (deterministic hashes for events). `txn` also stores `kind` (purchase / transfer), `merchant_category`, `description`; its date column is `occurred_on` (date only, Nessie has no time).
+- `person_alias` has `status` (confirmed / candidate); a candidate has `person_id` null until resolved through the review queue.
+- `proto_event.details` (jsonb) holds source-specific extras (payer hints, stated amounts, message ids, `looks_social`).
+- `event.anchor_txn_id` records the Nessie transaction an event is anchored on (BUILDPLAN Phase 4 MVP simplification).
+- `ledger_entry.event_id` is nullable (repayments not tied to one event); `beneficiary_id` is null only for `unaccounted`. Each row also carries `confidence` and `txn_id`.
+- `DATABASE_URL` may be `pglite://<dir>` or `pglite://memory` (embedded Postgres) for zero-install dev and tests; the same migrations run on Tiger Data.
 
 ## 6. Steps
 
