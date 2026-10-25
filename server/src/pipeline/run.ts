@@ -2,6 +2,7 @@
 // Every stage is idempotent, so any `from` stage can be rerun on its own.
 import type { Db } from "../db/pool";
 import { getConfig } from "../config";
+import { runTraced } from "../obs/tracing";
 import { defaultSources } from "../sources";
 import type { Embedder } from "../llm/embed";
 import type { GenerateOptions } from "../llm";
@@ -31,6 +32,17 @@ export interface RunOptions {
 
 /** Counts per stage, flattened as "<stage>.<name>". */
 export async function runPipeline(db: Db, opts: RunOptions = {}): Promise<Record<string, number>> {
+  const cfg = getConfig();
+  const meta = {
+    from: opts.from ?? "ingest",
+    llmMode: opts.llmMode ?? cfg.LLM_MODE,
+    embedMode: opts.embedder ? opts.embedder.model : cfg.EMBED_MODE,
+    model: opts.llm?.model ?? cfg.GEMINI_MODEL,
+  };
+  return runTraced("pipeline", meta, () => runPipelineImpl(db, opts), { metadata: meta, processOutputs: (o) => o });
+}
+
+async function runPipelineImpl(db: Db, opts: RunOptions): Promise<Record<string, number>> {
   const from = opts.from ?? "ingest";
   const start = STAGES.indexOf(from);
   if (start < 0) throw new Error(`unknown stage "${from}" (expected one of ${STAGES.join(", ")})`);
@@ -44,30 +56,26 @@ export async function runPipeline(db: Db, opts: RunOptions = {}): Promise<Record
     });
     log(`[${stage}] ${flat.join(" ")}`);
   };
-  for (const stage of STAGES.slice(start)) {
+  const runStage = async (stage: Stage): Promise<object> => {
     switch (stage) {
       case "ingest":
-        record(stage, await ingest(db, opts.sources ?? defaultSources(getConfig())));
-        break;
+        return ingest(db, opts.sources ?? defaultSources(getConfig()));
       case "embed":
-        record(stage, await embedMessages(db, { embedder: opts.embedder }));
-        break;
+        return embedMessages(db, { embedder: opts.embedder });
       case "protoEvents":
-        record(stage, await buildProtoEvents(db, llm));
-        break;
+        return buildProtoEvents(db, llm);
       case "merge":
-        record(stage, await mergeEvents(db, llm));
-        break;
+        return mergeEvents(db, llm);
       case "relevance":
-        record(stage, await runRelevance(db));
-        break;
+        return runRelevance(db);
       case "attribution":
-        record(stage, await runAttribution(db, llm));
-        break;
+        return runAttribution(db, llm);
       case "ledger":
-        record(stage, await runLedger(db));
-        break;
+        return runLedger(db);
     }
+  };
+  for (const stage of STAGES.slice(start)) {
+    record(stage, await runTraced(stage, { stage }, () => runStage(stage), { processOutputs: (c) => ({ ...c }) }));
   }
   return out;
 }

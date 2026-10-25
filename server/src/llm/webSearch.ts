@@ -8,8 +8,9 @@ import path from "node:path";
 import type { z } from "zod";
 import { getConfig } from "../config";
 import type { Db } from "../db/pool";
+import { wrapGenAI } from "../obs/tracing";
 import {
-  DEFAULT_FIXTURES_DIR, cacheGet, cacheKey, cachePut, callWithRetry, createGeminiClient, extractJson, previewInput,
+  DEFAULT_FIXTURES_DIR, traceLlmCall, type LlmSource, cacheGet, cacheKey, cachePut, callWithRetry, createGeminiClient, extractJson, previewInput,
   retryable, stripNulls, thinkingConfig, toJsonSchema, type GenerateOptions,
 } from "./gemini";
 
@@ -51,7 +52,7 @@ export function createGroundedClient(apiKey?: string, model?: string, ai?: Pick<
   const cfg = getConfig();
   const key = apiKey ?? cfg.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing (human task H3); use LLM_MODE=replay");
-  const sdk = ai ?? new GoogleGenAI({ apiKey: key });
+  const sdk = ai ?? wrapGenAI(new GoogleGenAI({ apiKey: key }));
   const m = model ?? cfg.GEMINI_MODEL;
   return {
     async search(prompt) {
@@ -96,13 +97,23 @@ export async function generateGrounded<I, O, E>(
   input: I,
   opts: WebSearchOptions = {},
 ): Promise<O | null> {
+  const model = opts.model ?? getConfig().GEMINI_MODEL;
+  return traceLlmCall<O | null>(prompt, input, model, () => generateGroundedInner(db, prompt, input, opts));
+}
+
+async function generateGroundedInner<I, O, E>(
+  db: Db,
+  prompt: WebSearchPromptDef<I, O, E>,
+  input: I,
+  opts: WebSearchOptions,
+): Promise<{ value: O | null; source: LlmSource }> {
   const cfg = getConfig();
   const mode = opts.mode ?? cfg.LLM_MODE;
   const model = opts.model ?? cfg.GEMINI_MODEL;
   const key = cacheKey(prompt.id, prompt.version, model, prompt.cacheInput(input));
 
   const hit = await cacheGet(db, key, prompt.schema);
-  if (hit !== undefined) return hit;
+  if (hit !== undefined) return { value: hit, source: "cache" };
 
   if (mode === "replay") {
     const fixtureKey = prompt.fixtureKey(input);
@@ -121,11 +132,11 @@ export async function generateGrounded<I, O, E>(
     }
     const value = prompt.schema.parse(stripNulls(JSON.parse(raw)));
     await cachePut(db, key, model, prompt.id, value);
-    return value;
+    return { value, source: "fixture" };
   }
 
   const grounded = await searchWithRetry(opts.grounded ?? createGroundedClient(undefined, model), prompt.renderSearch(input), opts);
-  if (!grounded.sources.length) return null; // no URL to cite -> nothing usable
+  if (!grounded.sources.length) return { value: null, source: "live" }; // no URL to cite -> nothing usable
 
   const client = opts.client ?? createGeminiClient(undefined, model);
   const jsonSchema = toJsonSchema(prompt.extractSchema);
@@ -150,8 +161,8 @@ export async function generateGrounded<I, O, E>(
     }
   }
   const out = prompt.finalize(extract, grounded);
-  if (out === null) return null;
+  if (out === null) return { value: null, source: "live" };
   const value = prompt.schema.parse(out);
   await cachePut(db, key, model, prompt.id, value);
-  return value;
+  return { value, source: "live" };
 }

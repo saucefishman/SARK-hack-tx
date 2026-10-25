@@ -6,6 +6,7 @@
 //  - dismiss:   marks the item dismissed (attendees: not social; payer: guess rejected, event excluded)
 import { USER_ID, type ReviewAnswerBody } from "@sark/shared";
 import type { Db } from "../db/pool";
+import { runTraced } from "../obs/tracing";
 import { attributeEvent } from "./attribution";
 import { normAlias } from "./ingest";
 import { rebuildEventLedger } from "./ledger";
@@ -30,6 +31,12 @@ export async function reprocessEvent(db: Db, eventId: string): Promise<string[]>
 
 /** Records the answer, re-runs the affected event, and returns affected friend ids. */
 export async function applyReviewAnswer(db: Db, reviewId: string, body: ReviewAnswerBody): Promise<string[]> {
+  return runTraced("review:answer", { reviewId, body }, () => applyReviewAnswerImpl(db, reviewId, body), {
+    processOutputs: (ids: string[]) => ({ affectedFriendIds: ids }),
+  });
+}
+
+async function applyReviewAnswerImpl(db: Db, reviewId: string, body: ReviewAnswerBody): Promise<string[]> {
   const { rows } = await db.query<{ kind: string; event_id: string | null; question: string }>(
     "SELECT kind, event_id, question FROM review_item WHERE id = $1",
     [reviewId],

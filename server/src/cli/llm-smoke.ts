@@ -2,6 +2,7 @@
 import { getConfig } from "../config";
 import { createDb } from "../db/pool";
 import { migrate } from "../db/migrate";
+import { flushTraces } from "../obs/tracing";
 import { generateStructured, messageDay } from "../llm";
 
 async function main() {
@@ -30,6 +31,7 @@ async function main() {
     { mode: "live" },
   );
   console.log(JSON.stringify(out, null, 2));
+  await flushTraces();
   await db.end();
 }
 

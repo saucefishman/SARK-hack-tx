@@ -3,6 +3,7 @@
 import { migrate } from "../db/migrate";
 import { getDb } from "../db/pool";
 import { startServer } from "../api/server";
+import { flushTraces } from "../obs/tracing";
 import { resetPipelineTables, runPipeline } from "../pipeline/run";
 import { writeSeed } from "../seed/write";
 
@@ -18,10 +19,12 @@ console.log(`seed: ${Object.keys(files).length} files, ${events} events`);
 console.log("demo: pipeline (replay)");
 await resetPipelineTables(db);
 await runPipeline(db, { llmMode: "replay", log: console.log });
+await flushTraces();
 
 const app = await startServer(db, { llmMode: "replay" });
 const stop = async () => {
   await app.close();
+  await flushTraces();
   await db.end();
   process.exit(0);
 };

@@ -23,6 +23,13 @@ const Env = z.object({
   CALENDAR_FILE: z.string().default("./seed/generated/calendar.json"),
   NESSIE_FILE: z.string().default("./seed/generated/nessie.json"),
   PORT: z.coerce.number().int().default(3000),
+  // LangSmith tracing (off by default; read by src/obs/tracing.ts). Traces include prompt text.
+  LANGSMITH_TRACING: z.enum(["true", "false"]).optional(),
+  LANGSMITH_API_KEY: z.string().optional(),
+  LANGSMITH_PROJECT: z.string().optional(),
+  LANGSMITH_ENDPOINT: z.string().optional(),
+  LANGSMITH_HIDE_INPUTS: z.enum(["true", "false"]).optional(),
+  LANGSMITH_HIDE_OUTPUTS: z.enum(["true", "false"]).optional(),
 });
 export type Config = z.infer<typeof Env> & {
   /** Absolute path resolver for repo-relative paths in env. */

@@ -6,6 +6,7 @@ import path from "node:path";
 import { z } from "zod";
 import { getConfig, REPO_ROOT } from "../config";
 import type { Db } from "../db/pool";
+import { annotateRun, runTraced, wrapGenAI } from "../obs/tracing";
 import type { PromptDef } from "./types";
 
 export interface LlmClient {
@@ -63,7 +64,7 @@ export function createGeminiClient(apiKey?: string, model?: string, ai?: Pick<Go
   const cfg = getConfig();
   const key = apiKey ?? cfg.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing (human task H3); use LLM_MODE=replay");
-  const sdk = ai ?? new GoogleGenAI({ apiKey: key });
+  const sdk = ai ?? wrapGenAI(new GoogleGenAI({ apiKey: key }));
   const m = model ?? cfg.GEMINI_MODEL;
   return {
     async generateJson(prompt, jsonSchema) {
@@ -137,19 +138,51 @@ export async function cachePut(db: Db, key: string, model: string, promptId: str
   );
 }
 
+/** Where an LLM result came from; recorded on the trace run as metadata.source (and in its outputs). */
+export type LlmSource = "cache" | "fixture" | "live";
+
+/** Traced wrapper (chain run `llm:<promptId>`); identical to calling `body` directly when tracing is off. */
+export async function traceLlmCall<O>(
+  prompt: { id: string; version: string; fixtureKey(input: any): string },
+  input: unknown,
+  model: string,
+  body: () => Promise<{ value: O; source: LlmSource }>,
+): Promise<O> {
+  const meta = { promptId: prompt.id, version: prompt.version, model };
+  const { value } = await runTraced(`llm:${prompt.id}`, { promptId: prompt.id, input }, async () => {
+    const r = await body();
+    annotateRun({ ...meta, fixtureKey: prompt.fixtureKey(input), source: r.source });
+    return r;
+  }, {
+    metadata: meta,
+    processOutputs: (r: { value: unknown; source: LlmSource }) => ({ source: r.source, output: r.value }),
+  });
+  return value;
+}
+
 export async function generateStructured<I, O>(
   db: Db,
   prompt: PromptDef<I, O>,
   input: I,
   opts: GenerateOptions = {},
 ): Promise<O> {
+  const model = opts.model ?? getConfig().GEMINI_MODEL;
+  return traceLlmCall(prompt, input, model, () => generateStructuredInner(db, prompt, input, opts));
+}
+
+async function generateStructuredInner<I, O>(
+  db: Db,
+  prompt: PromptDef<I, O>,
+  input: I,
+  opts: GenerateOptions,
+): Promise<{ value: O; source: LlmSource }> {
   const cfg = getConfig();
   const mode = opts.mode ?? cfg.LLM_MODE;
   const model = opts.model ?? cfg.GEMINI_MODEL;
   const key = cacheKey(prompt.id, prompt.version, model, input);
 
   const hit = await cacheGet(db, key, prompt.schema);
-  if (hit !== undefined) return hit;
+  if (hit !== undefined) return { value: hit, source: "cache" };
 
   if (mode === "replay") {
     const fixtureKey = prompt.fixtureKey(input);
@@ -169,7 +202,7 @@ export async function generateStructured<I, O>(
     const value = prompt.schema.parse(stripNulls(JSON.parse(raw)));
     runValidate(prompt, input, value);
     await cachePut(db, key, model, prompt.id, value);
-    return value;
+    return { value, source: "fixture" };
   }
 
   const client = opts.client ?? createGeminiClient(undefined, model);
@@ -201,7 +234,7 @@ export async function generateStructured<I, O>(
     }
   }
   await cachePut(db, key, model, prompt.id, value);
-  return value;
+  return { value, source: "live" };
 }
 
 function runValidate<I, O>(prompt: PromptDef<I, O>, input: I, output: O): void {

@@ -6,6 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createHash } from "node:crypto";
 import { getConfig } from "../config";
 import type { Db } from "../db/pool";
+import { runTraced } from "../obs/tracing";
 import { retryable } from "./gemini";
 
 export const EMBED_DIMS = 768;
@@ -112,10 +113,12 @@ export function geminiEmbedder(o: GeminiEmbedderOptions = {}): Embedder {
   return {
     model,
     dims: EMBED_DIMS,
-    async embed(texts) {
-      const out: number[][] = [];
-      for (let i = 0; i < texts.length; i += BATCH) out.push(...(await callBatch(texts.slice(i, i + BATCH))));
-      return out;
+    embed(texts) {
+      return runTraced("embed:gemini", { count: texts.length, model }, async () => {
+        const out: number[][] = [];
+        for (let i = 0; i < texts.length; i += BATCH) out.push(...(await callBatch(texts.slice(i, i + BATCH))));
+        return out;
+      }, { runType: "embedding", processOutputs: (v: number[][]) => ({ count: v.length, dims: v[0]?.length ?? 0 }) });
     },
   };
 }

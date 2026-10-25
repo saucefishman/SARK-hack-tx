@@ -8,6 +8,7 @@ import { migrate } from "../db/migrate";
 import { createDb } from "../db/pool";
 import { getFriendSummaries } from "../db/queries";
 import { formatCents } from "../domain/money";
+import { flushTraces } from "../obs/tracing";
 import { runPipeline } from "../pipeline/run";
 import { writeSeed } from "../seed/write";
 import { sourcesFromDir } from "../sources";
@@ -69,6 +70,7 @@ for (const f of friends.sort((a, b) => a.personId.localeCompare(b.personId))) {
   );
 }
 for (const id of Object.keys(truth.friends)) if (!friends.some((f) => f.personId === id)) { bad++; console.log(`${id}: missing`); }
+await flushTraces();
 await db.end();
 fs.rmSync(tmp, { recursive: true, force: true });
 if (bad && llmMode === "live") {

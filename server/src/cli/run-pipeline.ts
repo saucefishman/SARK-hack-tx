@@ -2,6 +2,7 @@
 import { getConfig } from "../config";
 import { migrate } from "../db/migrate";
 import { getDb } from "../db/pool";
+import { flushTraces } from "../obs/tracing";
 import { runPipeline, STAGES, type Stage } from "../pipeline/run";
 
 const arg = (name: string) => {
@@ -18,4 +19,5 @@ await migrate(db);
 const llmMode = (llm as "live" | "replay" | undefined) ?? getConfig().LLM_MODE;
 console.log(`pipeline: from=${from ?? "ingest"} llm=${llmMode}`);
 await runPipeline(db, { from, llmMode, log: console.log });
+await flushTraces();
 await db.end();

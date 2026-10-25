@@ -2,6 +2,7 @@
 // cost-baseline RAG step. Query is embedded with the same embedder as the stored messages.
 import type { Db } from "../db/pool";
 import { embedTexts, getEmbedder, pgVector, type Embedder } from "../llm/embed";
+import { runTraced } from "../obs/tracing";
 import { hasVectorColumn } from "./embed";
 
 export interface MessageHit {
@@ -52,7 +53,15 @@ const hit = (r: Row, score: number): MessageHit => ({
   messageId: r.id, threadId: r.thread_id, senderId: r.sender_id, body: r.body, sentAt: r.sent_at, score,
 });
 
-export const searchMessages: MessageSearch = async (db, query, opts = {}) => {
+export const searchMessages: MessageSearch = async (db, query, opts = {}) =>
+  runTraced("searchMessages", { query, k: opts.k ?? 5, before: opts.before, minScore: opts.minScore }, () => searchMessagesImpl(db, query, opts), {
+    runType: "retriever",
+    processOutputs: (hits: MessageHit[]) => ({
+      documents: hits.map((h) => ({ messageId: h.messageId, score: h.score, snippet: h.body.slice(0, 80) })),
+    }),
+  });
+
+const searchMessagesImpl: MessageSearch = async (db, query, opts = {}) => {
   const embedder = opts.embedder ?? (defaultEmbedder ??= getEmbedder());
   const [q] = await embedTexts(db, [query], embedder);
   const k = opts.k ?? 5;

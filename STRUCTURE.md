@@ -14,7 +14,7 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/llm/types.ts` — `PromptDef<I,O>` — prompt contract (id, version, schema, render, fixtureKey)
 
 ## Server infrastructure
-- `server/src/config.ts` — `getConfig()`, `REPO_ROOT` — the one env loader (zod, fail fast); incl. `GEMINI_THINKING`, `LLM_CONCURRENCY`, `EMBED_MODE`
+- `server/src/config.ts` — `getConfig()`, `REPO_ROOT` — the one env loader (zod, fail fast); incl. `GEMINI_THINKING`, `LLM_CONCURRENCY`, `EMBED_MODE`, `LANGSMITH_*`
 - `server/src/util/mapLimit.ts` — `mapLimit(items, limit, fn)` — order-preserving bounded-concurrency map (parallel LLM calls)
 - `server/src/db/pool.ts` — `Db`, `createDb(url)`, `getDb()` — the one DB handle; `postgres://` → pg, `pglite://dir|memory` → embedded PGlite
 - `server/src/db/migrate.ts` — `migrate(db)` — applies `migrations/*.sql` in order
@@ -74,6 +74,11 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/pipeline/cost.ts` — `ragHistoryCost`, `ragQuery`, `webColdStartCost` — RAG and web-search steps behind estimateBaseCost
 - `server/src/llm/webSearch.ts` — `generateGrounded`, `createGroundedClient`, `GroundedClient` — Google-Search-grounded Gemini with cache + replay fixtures
 - `server/src/llm/prompts/{costFromSnippets,webCost}.ts`, `server/src/llm/schemas/{costFromSnippets,webCost}.ts` — RAG quote extraction and web price extraction
+
+## Observability
+- `server/src/obs/tracing.ts` — `tracingEnabled`, `traced`, `runTraced`, `annotateRun`, `wrapGenAI`, `flushTraces`, `getTracingClient`, `setTracingClient` — the one LangSmith tracing module; no-op unless `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` set
+- `server/src/llm/gemini.ts` — `traceLlmCall`, `LlmSource` — `llm:<promptId>` chain runs recording source (cache|fixture|live)
+- `server/test/env.test.ts` — guard: every config env var is documented in `.env.example`
 
 ## API
 - `server/src/api/server.ts` — `startServer(db, {port?, llmMode?})` — listen on a migrated Db

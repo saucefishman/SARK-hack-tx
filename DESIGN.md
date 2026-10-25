@@ -173,6 +173,7 @@ Hand-label the seeded dataset: for each event, true attendees, true payer, true 
 - Demo uses seeded/fake or consenting people only.
 - UI language is neutral ("balance", not "cost you").
 - Say plainly in the UI: estimates are heuristic.
+- LangSmith tracing is off by default. When `LANGSMITH_TRACING=true` and a key is set, traces send full prompt text (including message contents and names), model outputs and retrieval snippets to LangSmith. `LANGSMITH_HIDE_INPUTS=true` / `LANGSMITH_HIDE_OUTPUTS=true` send only structure, timing, token counts and metadata. Use with seeded/demo data only, not real user messages.
 
 ## 9. Risks
 
