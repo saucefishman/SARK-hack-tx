@@ -8,7 +8,7 @@ export interface WebCostInput {
   eventType?: string;
 }
 
-/** Two-step prompt: a grounded (Google Search) free-text call, then a structured extraction over its text. */
+/** Two-step prompt: a web-search-grounded free-text call, then a structured extraction over its text. */
 export const webCost: WebSearchPromptDef<WebCostInput, WebCostOutput, WebCostExtract> = {
   id: "webCost",
   version: "1",

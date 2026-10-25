@@ -2,7 +2,6 @@
 // LANGSMITH_TRACING=true AND LANGSMITH_API_KEY is set. When on, prompt text (incl. message contents) is sent to LangSmith.
 import { Client } from "langsmith";
 import { getCurrentRunTree, isTraceableFunction, traceable } from "langsmith/traceable";
-import { wrapGemini } from "langsmith/wrappers/gemini";
 import "../config"; // loads .env before we read LANGSMITH_* from process.env
 
 export type TraceRunType = "chain" | "llm" | "retriever" | "embedding" | "tool";
@@ -61,12 +60,6 @@ export function annotateRun(metadata: Record<string, unknown>): void {
   const rt = getCurrentRunTree(true);
   if (!rt) return;
   rt.metadata = { ...rt.metadata, ...metadata };
-}
-
-/** The Gemini SDK instance, traced (each generateContent becomes an `llm` run with tokens) when enabled. */
-export function wrapGenAI<T extends { models: { generateContent: (...a: any[]) => any; generateContentStream: (...a: any[]) => any } }>(ai: T): T {
-  if (!tracingEnabled()) return ai;
-  return wrapGemini(ai, { client: getTracingClient(), tracingEnabled: true });
 }
 
 /** Waits for pending trace batches to be delivered. No-op when disabled; never throws. */

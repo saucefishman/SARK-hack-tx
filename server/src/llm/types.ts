@@ -1,4 +1,4 @@
-// Prompt contract for llm/gemini.ts. Each prompt in llm/prompts/ exports one PromptDef.
+// Prompt contract for llm/client.ts. Each prompt in llm/prompts/ exports one PromptDef.
 import type { z } from "zod";
 
 export interface PromptDef<I, O> {
@@ -6,7 +6,7 @@ export interface PromptDef<I, O> {
   id: string;
   /** Bump when render() or schema changes; part of the cache key. */
   version: string;
-  /** Response schema; converted to JSON schema for Gemini structured output. */
+  /** Response schema; converted to JSON schema for the model's structured output. */
   schema: z.ZodType<O>;
   render(input: I): string;
   /**

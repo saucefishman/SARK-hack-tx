@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { generateStructured, type LlmClient } from "../src/llm";
 import {
-  annotateRun, flushTraces, isTraceableFunction, runTraced, setTracingClient, traced, tracingEnabled, wrapGenAI,
+  annotateRun, flushTraces, isTraceableFunction, runTraced, setTracingClient, traced, tracingEnabled,
 } from "../src/obs/tracing";
+import { createMuseClient } from "../src/llm/muse";
 import { searchMessages } from "../src/pipeline/retrieval";
 import { localEmbedder } from "../src/llm/embed";
 import { testDb } from "./helpers";
@@ -48,8 +49,6 @@ describe("tracing disabled (default)", () => {
     const fn = async (x: number) => x + 1;
     expect(traced("t", fn)).toBe(fn);
     expect(isTraceableFunction(traced("t", fn))).toBe(false);
-    const ai = { models: { generateContent: async () => 1, generateContentStream: async () => 1 } };
-    expect(wrapGenAI(ai)).toBe(ai);
     expect(await runTraced("r", {}, async () => 7)).toBe(7);
     annotateRun({ a: 1 }); // no-op
     await expect(flushTraces()).resolves.toBeUndefined();
@@ -107,6 +106,26 @@ describe("tracing enabled (client stubbed)", () => {
       expect(all).toContain("llm:tracingTest");
       expect(all).toMatch(/"source":"live"/);
       expect(all).toMatch(/"source":"cache"/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("a Muse HTTP call becomes a muse:chat llm run with token usage; result unchanged", async () => {
+    const usage = { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 };
+    const museFetch = (async () =>
+      new Response(JSON.stringify({ choices: [{ finish_reason: "stop", message: { content: '{"ok":true}' } }], usage }), { status: 200 })) as unknown as typeof fetch;
+    const client = createMuseClient({ apiKey: "k", model: "muse-test", baseUrl: "http://muse.test/v1", fetch: museFetch });
+    const plain = await client.generateJson("hi", { type: "object" });
+    const { calls, bodies, restore } = enable();
+    try {
+      expect(await client.generateJson("hi", { type: "object" })).toBe(plain);
+      await flushTraces();
+      expect(calls.length).toBeGreaterThan(0);
+      const all = bodies.join("\n");
+      expect(all).toContain("muse:chat");
+      expect(all).toMatch(/"run_type":"llm"/);
+      expect(all).toContain('"total_tokens":8');
     } finally {
       restore();
     }

@@ -1,5 +1,7 @@
-export { generateStructured, canonicalJson, cacheKey, createGeminiClient } from "./gemini";
-export type { LlmClient, GenerateOptions } from "./gemini";
+export { generateStructured, canonicalJson, cacheKey } from "./client";
+export type { LlmClient, GenerateOptions } from "./client";
+export { createMuseClient, createMuseGroundedClient, MuseApiError } from "./muse";
+export type { MuseClientOptions, ReasoningLevel } from "./muse";
 export { messageDay } from "./prompts/messageDay";
 export type { MessageDayInput } from "./prompts/messageDay";
 export { txnSocial } from "./prompts/txnSocial";
@@ -17,7 +19,7 @@ export { costFromSnippets, costFromSnippetsKey } from "./prompts/costFromSnippet
 export type { CostFromSnippetsInput } from "./prompts/costFromSnippets";
 export { webCost } from "./prompts/webCost";
 export type { WebCostInput } from "./prompts/webCost";
-export { generateGrounded, createGroundedClient } from "./webSearch";
+export { generateGrounded } from "./webSearch";
 export type { GroundedClient, GroundedResult, GroundedSource, WebSearchOptions, WebSearchPromptDef } from "./webSearch";
 export type { CostFromSnippetsOutput, CostQuote } from "./schemas/costFromSnippets";
 export type { WebCostOutput } from "./schemas/webCost";

@@ -37,7 +37,7 @@ export async function runPipeline(db: Db, opts: RunOptions = {}): Promise<Record
     from: opts.from ?? "ingest",
     llmMode: opts.llmMode ?? cfg.LLM_MODE,
     embedMode: opts.embedder ? opts.embedder.model : cfg.EMBED_MODE,
-    model: opts.llm?.model ?? cfg.GEMINI_MODEL,
+    model: opts.llm?.model ?? cfg.LLM_MODEL,
   };
   return runTraced("pipeline", meta, () => runPipelineImpl(db, opts), { metadata: meta, processOutputs: (o) => o });
 }

@@ -1,6 +1,6 @@
 // RAG history + cold-start web cost steps (DESIGN 6c). No network: fake search, fake LLM clients, replay fixtures.
 import { describe, expect, it } from "vitest";
-import { pickPerPersonCents, quotePerPersonCents } from "../src/domain/ragCost";
+import { dollarAmountsIn, pickPerPersonCents, quotePerPersonCents, quotesStatedInText, statedPerPerson } from "../src/domain/ragCost";
 import { ragHistoryCost, ragQuery, webColdStartCost } from "../src/pipeline/cost";
 import type { GroundedClient, LlmClient } from "../src/llm";
 import type { MessageHit, MessageSearch, SearchOptions } from "../src/pipeline/retrieval";
@@ -47,7 +47,46 @@ describe("pickPerPersonCents (pure)", () => {
   });
 });
 
+describe("quotesStatedInText (guard: reported figures must be in the message)", () => {
+  const ego = "Ego's was like $20 a head last time, super cheap for a private room";
+  const bodies = new Map([["ego", ego], ["tab", "tab was $90 for the three of us"], ["big", "rent was $1,200.50 this month"]]);
+  it("parses dollar amounts and per-person phrasing from the text", () => {
+    expect(dollarAmountsIn("$20 a head, $ 12.50, $1,200 and 30 dollars")).toEqual([20, 12.5, 1200]);
+    expect(statedPerPerson(ego, 20)).toBe(true);
+    expect(statedPerPerson("other karaoke place $50 each", 50)).toBe(true);
+    expect(statedPerPerson("tab was $90 for the three of us", 90)).toBe(false);
+    expect(statedPerPerson(ego, 60)).toBe(false);
+  });
+  it("drops a computed figure (live Muse: '$20 a head' reported as totalDollars 60)", () => {
+    expect(quotesStatedInText([{ messageId: "ego", totalDollars: 60, relevance: "same_venue" }], bodies)).toEqual([]);
+  });
+  it("moves a per-person figure filed as totalDollars (live Muse: totalDollars 20, no headcount)", () => {
+    expect(quotesStatedInText([{ messageId: "ego", totalDollars: 20, relevance: "same_venue" }], bodies)).toEqual([
+      { messageId: "ego", perPersonDollars: 20, relevance: "same_venue" },
+    ]);
+  });
+  it("keeps correct quotes as they are; unknown bodies pass through; keeps only the stated field", () => {
+    const good = [
+      { messageId: "ego", perPersonDollars: 20, relevance: "same_venue" as const },
+      { messageId: "tab", totalDollars: 90, headcountStated: 3, relevance: "same_venue" as const },
+      { messageId: "big", totalDollars: 1200.5, relevance: "unrelated" as const },
+      { messageId: "not-retrieved", perPersonDollars: 7, relevance: "similar_event" as const },
+    ];
+    expect(quotesStatedInText(good, bodies)).toEqual(good);
+    expect(quotesStatedInText([{ messageId: "tab", perPersonDollars: 30, totalDollars: 90, headcountStated: 3, relevance: "same_venue" }], bodies))
+      .toEqual([{ messageId: "tab", totalDollars: 90, headcountStated: 3, relevance: "same_venue" }]); // $30 is not in the text
+  });
+});
+
 describe("ragHistoryCost", () => {
+  it("live Muse field mix-ups are corrected or rejected before the median (never a made-up amount)", async () => {
+    const search: MessageSearch = async () => [hit("m1", "Ego's was like $20 a head last time"), hit("m2", "I put $60 on my card")];
+    const wrongField = jsonClient([{ quotes: [{ messageId: "m1", totalDollars: 20, relevance: "same_venue", text: "$20 a head" }] }]);
+    expect(await ragHistoryCost(await testDb(), karaoke, { search, llm: gen(wrongField) })).toMatchObject({ amountCents: 6000, perPersonCents: 2000 });
+    const computed = jsonClient([{ quotes: [{ messageId: "m1", totalDollars: 60, relevance: "same_venue", text: "$20 a head" }] }]);
+    expect(await ragHistoryCost(await testDb(), karaoke, { search, llm: gen(computed) })).toBeNull();
+  });
+
   it("queries before the event date, excluding its own messages, k=8; same_venue quote x headcount", async () => {
     const db = await testDb();
     let seen: { q: string; o?: SearchOptions } | undefined;

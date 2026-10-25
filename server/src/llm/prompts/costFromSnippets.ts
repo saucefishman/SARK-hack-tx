@@ -16,7 +16,9 @@ export const costFromSnippetsKey = (i: { date: string; merchant?: string | null;
 
 export const costFromSnippets: PromptDef<CostFromSnippetsInput, CostFromSnippetsOutput> = {
   id: "costFromSnippets",
-  version: "1",
+  // v2 (Muse migration): field examples + "numbers must appear in the snippet". At low reasoning, Muse sometimes put a
+  // per-person price in totalDollars or multiplied it by a headcount; ragHistoryCost also drops any figure not in the text.
+  version: "2",
   schema: CostFromSnippetsOutput,
   fixtureKey: costFromSnippetsKey,
   render: (i) => `We need to estimate what an outing cost per person. Below are earlier chat messages found by search. Pick out only the messages that state a price relevant to this outing.
@@ -29,6 +31,12 @@ Each quote:
 - perPersonDollars: only if the text states a per-person price ("$20 a head", "$25 each", "$15/person"). Report it as written.
 - totalDollars: only if the text states a total bill for the group ("tab was $90"). Report it as written. Never divide it yourself.
 - headcountStated: only if the text says how many people the total covered ("for the four of us" -> 4).
+Every dollar figure you report must appear, as written, in THAT snippet's own text. Never multiply a per-person price by a
+number of people, never combine numbers from different snippets.
+Examples:
+- "Ego's was like $20 a head" -> {"perPersonDollars": 20} (a per-person price: never totalDollars)
+- "tab was $90 for the three of us" -> {"totalDollars": 90, "headcountStated": 3}
+- "Burgers were $54 total" -> {"totalDollars": 54}
 - relevance: "same_venue" if the price is for the same venue/business as the outing below; "similar_event" if it is for the same kind of outing somewhere else; "unrelated" if it is about something else (rent, a different kind of purchase, a payback of an old debt).
 - text: the words of the snippet that state the price.
 An empty list is correct when no snippet states a relevant price.
