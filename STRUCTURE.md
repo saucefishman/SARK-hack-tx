@@ -14,7 +14,8 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/llm/types.ts` — `PromptDef<I,O>` — prompt contract (id, version, schema, render, fixtureKey)
 
 ## Server infrastructure
-- `server/src/config.ts` — `getConfig()`, `REPO_ROOT` — the one env loader (zod, fail fast)
+- `server/src/config.ts` — `getConfig()`, `REPO_ROOT` — the one env loader (zod, fail fast); incl. `GEMINI_THINKING`, `LLM_CONCURRENCY`, `EMBED_MODE`
+- `server/src/util/mapLimit.ts` — `mapLimit(items, limit, fn)` — order-preserving bounded-concurrency map (parallel LLM calls)
 - `server/src/db/pool.ts` — `Db`, `createDb(url)`, `getDb()` — the one DB handle; `postgres://` → pg, `pglite://dir|memory` → embedded PGlite
 - `server/src/db/migrate.ts` — `migrate(db)` — applies `migrations/*.sql` in order
 - `server/test/helpers.ts` — `testDb()` — fresh in-memory migrated DB for tests
@@ -46,7 +47,7 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/pipeline/ingest.ts` — `ingest(db, sources)`, `resolvePerson(db, kind, value)`, `normAlias(v)` — raw tables + alias resolution, idempotent
 
 ## LLM (Stream B)
-- `server/src/llm/gemini.ts` — `generateStructured(db, prompt, input, opts?)`, `LlmClient`, `createGeminiClient`, `cacheKey`, `canonicalJson` — the one Gemini client: cache → fixture (replay) → live with retry/repair
+- `server/src/llm/gemini.ts` — `generateStructured(db, prompt, input, opts?)`, `LlmClient`, `createGeminiClient`, `cacheKey`, `canonicalJson`, `thinkingConfig`, `generationConfig` — the one Gemini client: cache → fixture (replay) → live with retry/repair
 - `server/src/llm/prompts/{messageDay,txnSocial,mergeDay,repayments}.ts` — PromptDefs + input types; `validateMergeGroups` (messageDay is v2: adds `perPersonAmountDollars`, `payers[]`)
 - `server/src/llm/prompts/util.ts` — `slug`, `ValidatedPromptDef`, `RULES`, `json`
 - `server/src/llm/schemas/*.ts` — zod output schemas
@@ -55,7 +56,7 @@ Format: `path` — `Name` — one-line purpose
 
 ## Pipeline (Phase 4)
 - `server/src/pipeline/protoEvents.ts` — `buildProtoEvents(db, opts)` — thread×day messageDay, calendar direct, purchases via txnSocial → `proto_event`
-- `server/src/pipeline/merge.ts` — `mergeEvents(db, opts)`, `findEvidenceMessage` — per-day mergeDay → `event`/`event_source`/`event_payer`
+- `server/src/pipeline/merge.ts` — `mergeEvents(db, opts)`, `findEvidenceMessage`, `singleProtoGroup` (skips the LLM on unambiguous single-proto days) — per-day mergeDay → `event`/`event_source`/`event_payer`
 - `server/src/pipeline/relevance.ts` — `evaluateEvent`, `runRelevance`, `attendeesReviewId` — relevance rule + attendees review items
 - `server/src/pipeline/attribution.ts` — `attributeEvent`, `runAttribution`, `detectRepayments`, `dbBaseCostDeps`, `payerReviewId` — payer basis rules, estimateBaseCost with DB history, repayments (message + transfer, deduped)
 - `server/src/pipeline/ledger.ts` — `rebuildEventLedger(db, id)`, `runLedger(db)` — splitEvent → `ledger_entry`, idempotent per event

@@ -10,7 +10,7 @@ import { getConfig } from "../config";
 import type { Db } from "../db/pool";
 import {
   DEFAULT_FIXTURES_DIR, cacheGet, cacheKey, cachePut, callWithRetry, createGeminiClient, extractJson, previewInput,
-  retryable, stripNulls, toJsonSchema, type GenerateOptions,
+  retryable, stripNulls, thinkingConfig, toJsonSchema, type GenerateOptions,
 } from "./gemini";
 
 export interface GroundedSource { uri: string; title?: string }
@@ -42,18 +42,23 @@ export interface WebSearchOptions extends GenerateOptions {
   grounded?: GroundedClient;
 }
 
-export function createGroundedClient(apiKey?: string, model?: string): GroundedClient {
+/** The generateContent config for a grounded (Google Search) call. */
+export function groundedConfig(level?: "default" | "low" | "high") {
+  return { temperature: 0, tools: [{ googleSearch: {} }], ...thinkingConfig(level) };
+}
+
+export function createGroundedClient(apiKey?: string, model?: string, ai?: Pick<GoogleGenAI, "models">): GroundedClient {
   const cfg = getConfig();
   const key = apiKey ?? cfg.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing (human task H3); use LLM_MODE=replay");
-  const ai = new GoogleGenAI({ apiKey: key });
+  const sdk = ai ?? new GoogleGenAI({ apiKey: key });
   const m = model ?? cfg.GEMINI_MODEL;
   return {
     async search(prompt) {
-      const res = await ai.models.generateContent({
+      const res = await sdk.models.generateContent({
         model: m,
         contents: prompt,
-        config: { temperature: 0, tools: [{ googleSearch: {} }] },
+        config: groundedConfig(),
       });
       const chunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
       const seen = new Set<string>();

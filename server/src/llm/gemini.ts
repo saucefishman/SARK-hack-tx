@@ -1,5 +1,5 @@
 // The ONE Gemini client: cached, record/replay, retrying, zod-validated structured output.
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -48,18 +48,29 @@ export function cacheKey(promptId: string, version: string, model: string, input
     .digest("hex");
 }
 
-export function createGeminiClient(apiKey?: string, model?: string): LlmClient {
+/** thinkingConfig for GEMINI_THINKING ("default" = leave unset). Not part of the cache key. */
+export function thinkingConfig(level: "default" | "low" | "high" = getConfig().GEMINI_THINKING): { thinkingConfig?: { thinkingLevel: ThinkingLevel } } {
+  if (level === "default") return {};
+  return { thinkingConfig: { thinkingLevel: level === "high" ? ThinkingLevel.HIGH : ThinkingLevel.LOW } };
+}
+
+/** The generateContent config for a structured-JSON call. */
+export function generationConfig(jsonSchema: object, level?: "default" | "low" | "high") {
+  return { temperature: 0, responseMimeType: "application/json", responseJsonSchema: jsonSchema, ...thinkingConfig(level) };
+}
+
+export function createGeminiClient(apiKey?: string, model?: string, ai?: Pick<GoogleGenAI, "models">): LlmClient {
   const cfg = getConfig();
   const key = apiKey ?? cfg.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing (human task H3); use LLM_MODE=replay");
-  const ai = new GoogleGenAI({ apiKey: key });
+  const sdk = ai ?? new GoogleGenAI({ apiKey: key });
   const m = model ?? cfg.GEMINI_MODEL;
   return {
     async generateJson(prompt, jsonSchema) {
-      const res = await ai.models.generateContent({
+      const res = await sdk.models.generateContent({
         model: m,
         contents: prompt,
-        config: { temperature: 0, responseMimeType: "application/json", responseJsonSchema: jsonSchema },
+        config: generationConfig(jsonSchema),
       });
       return res.text ?? "";
     },

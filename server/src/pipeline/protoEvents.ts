@@ -5,14 +5,17 @@
 // Idempotent: deterministic ids (stableId), upsert, stale rows removed.
 import { USER_ID } from "@sark/shared";
 import type { Db } from "../db/pool";
+import { getConfig } from "../config";
 import { stableId } from "../domain/ids";
-import { generateStructured, messageDay, txnSocial, type GenerateOptions } from "../llm";
+import { generateStructured, messageDay, txnSocial, type GenerateOptions, type MessageDayInput } from "../llm";
+import { mapLimit } from "../util/mapLimit";
 
 export interface ProtoCounts {
   message: number;
   calendar: number;
   txn: number;
   llmCalls: number;
+  llmSkipped: number;
 }
 
 interface ProtoRow {
@@ -33,7 +36,7 @@ export async function buildProtoEvents(
   opts: { llmMode?: GenerateOptions["mode"]; llm?: GenerateOptions } = {},
 ): Promise<ProtoCounts> {
   const gen: GenerateOptions = { ...opts.llm, ...(opts.llmMode ? { mode: opts.llmMode } : {}) };
-  const counts: ProtoCounts = { message: 0, calendar: 0, txn: 0, llmCalls: 0 };
+  const counts: ProtoCounts = { message: 0, calendar: 0, txn: 0, llmCalls: 0, llmSkipped: 0 };
   const protos: ProtoRow[] = [];
 
   const { rows: persons } = await db.query<{ id: string; display_name: string }>(
@@ -62,12 +65,13 @@ export async function buildProtoEvents(
   );
   const threads = new Map<string, typeof msgs>();
   for (const m of msgs) (threads.get(m.thread_id) ?? threads.set(m.thread_id, []).get(m.thread_id)!).push(m);
+  const dayJobs: { threadId: string; date: string; input: MessageDayInput }[] = [];
   for (const [threadId, all] of threads) {
     const senderIds = [...new Set([USER_ID, ...all.map((m) => m.sender_id).filter((x): x is string => !!x)])].sort();
     const title = `Chat with ${senderIds.filter((id) => id !== USER_ID).map((id) => nameOf.get(id) ?? id).join(", ") || "yourself"}`;
     const days = [...new Set(all.map((m) => m.d))];
     for (const date of days) {
-      const input = {
+      const input: MessageDayInput = {
         threadId,
         threadTitle: title,
         date,
@@ -76,35 +80,41 @@ export async function buildProtoEvents(
           .filter((m) => m.d === date)
           .map((m) => ({ id: m.id, senderId: m.sender_id ?? "unknown", senderName: m.sender_name, time: m.t, text: m.body })),
       };
-      const out = await generateStructured(db, messageDay, input, gen);
-      counts.llmCalls++;
-      const msgIds = new Set(input.messages.map((m) => m.id));
-      out.events.forEach((ev, i) => {
-        const peopleIds = [...new Set(ev.peopleIds.filter((id) => known.has(id)))];
-        const payers = (ev.payers ?? []).filter((p) => known.has(p.personId));
-        protos.push({
-          id: stableId("pe", "message", threadId, date, i),
-          source: "message",
-          sourceRef: `${threadId}:${date}#${i}`,
-          date: ISO_DATE.test(ev.date) ? ev.date : date,
-          time: ev.time ?? null,
-          description: ev.description,
-          peopleIds,
-          details: {
-            threadId,
-            ...(ev.payerId && known.has(ev.payerId) ? { payerId: ev.payerId } : {}),
-            ...(ev.amountDollars !== undefined ? { amountDollars: ev.amountDollars } : {}),
-            ...(ev.perPersonAmountDollars !== undefined ? { perPersonAmountDollars: ev.perPersonAmountDollars } : {}),
-            ...(payers.length ? { payers } : {}),
-            coveredPhrases: ev.coveredPhrases,
-            paymentMentions: ev.paymentMentions,
-            sourceMessageIds: ev.sourceMessageIds.filter((id) => msgIds.has(id)),
-          },
-        });
-        counts.message++;
-      });
+      dayJobs.push({ threadId, date, input });
     }
   }
+  // Independent LLM calls run concurrently; results come back in job order, so protos are built exactly as before.
+  const concurrency = getConfig().LLM_CONCURRENCY;
+  const dayOuts = await mapLimit(dayJobs, concurrency, (j) => generateStructured(db, messageDay, j.input, gen));
+  counts.llmCalls += dayJobs.length;
+  dayJobs.forEach(({ threadId, date, input }, k) => {
+    const out = dayOuts[k]!;
+    const msgIds = new Set(input.messages.map((m) => m.id));
+    out.events.forEach((ev, i) => {
+      const peopleIds = [...new Set(ev.peopleIds.filter((id) => known.has(id)))];
+      const payers = (ev.payers ?? []).filter((p) => known.has(p.personId));
+      protos.push({
+        id: stableId("pe", "message", threadId, date, i),
+        source: "message",
+        sourceRef: `${threadId}:${date}#${i}`,
+        date: ISO_DATE.test(ev.date) ? ev.date : date,
+        time: ev.time ?? null,
+        description: ev.description,
+        peopleIds,
+        details: {
+          threadId,
+          ...(ev.payerId && known.has(ev.payerId) ? { payerId: ev.payerId } : {}),
+          ...(ev.amountDollars !== undefined ? { amountDollars: ev.amountDollars } : {}),
+          ...(ev.perPersonAmountDollars !== undefined ? { perPersonAmountDollars: ev.perPersonAmountDollars } : {}),
+          ...(payers.length ? { payers } : {}),
+          coveredPhrases: ev.coveredPhrases,
+          paymentMentions: ev.paymentMentions,
+          sourceMessageIds: ev.sourceMessageIds.filter((id) => msgIds.has(id)),
+        },
+      });
+      counts.message++;
+    });
+  });
 
   // ---- calendar
   const { rows: cals } = await db.query<{
@@ -136,14 +146,13 @@ export async function buildProtoEvents(
     `SELECT id, amount_cents, merchant, merchant_category, description, to_char(occurred_on, 'YYYY-MM-DD') AS d, payer_id
      FROM txn WHERE kind = 'purchase' ORDER BY occurred_on, id`,
   );
-  for (const t of txns) {
-    const merchant = t.merchant ?? t.description ?? "Unknown merchant";
-    const out = await generateStructured(
+  const txnOuts = await mapLimit(txns, concurrency, (t) =>
+    generateStructured(
       db,
       txnSocial,
       {
         txnId: t.id,
-        merchant,
+        merchant: t.merchant ?? t.description ?? "Unknown merchant",
         category: t.merchant_category ?? "unknown",
         amountDollars: t.amount_cents / 100,
         date: t.d,
@@ -152,8 +161,12 @@ export async function buildProtoEvents(
           .map((s) => ({ merchant: s.merchant ?? s.description ?? "Unknown merchant", amountDollars: s.amount_cents / 100 })),
       },
       gen,
-    );
-    counts.llmCalls++;
+    ),
+  );
+  counts.llmCalls += txns.length;
+  txns.forEach((t, k) => {
+    const out = txnOuts[k]!;
+    const merchant = t.merchant ?? t.description ?? "Unknown merchant";
     protos.push({
       id: stableId("pe", "txn", t.id),
       source: "txn",
@@ -173,7 +186,7 @@ export async function buildProtoEvents(
       },
     });
     counts.txn++;
-  }
+  });
 
   await db.tx(async (tx) => {
     for (const p of protos) {

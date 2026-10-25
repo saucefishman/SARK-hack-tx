@@ -8,12 +8,14 @@
 // Repayments (`attributeRepayments`): `repayments` prompt over thread messages + Nessie transfers -> ledger rows
 // of kind `repayment` (event_id null); unexplained transfers -> `unaccounted`.
 import { USER_ID } from "@sark/shared";
+import { getConfig } from "../config";
 import type { Db } from "../db/pool";
 import { stableId } from "../domain/ids";
 import { dollarsToCents } from "../domain/money";
 import { splitEvent } from "../domain/split";
 import { estimateBaseCost, type BaseCostDeps } from "../domain/estimateBaseCost";
-import { generateStructured, repayments, type GenerateOptions } from "../llm";
+import { generateStructured, repayments, type GenerateOptions, type RepaymentsInput } from "../llm";
+import { mapLimit } from "../util/mapLimit";
 import { ragHistoryCost, webColdStartCost } from "./cost";
 import { findNamedFriend } from "./ingest";
 import type { MessageSearch } from "./retrieval";
@@ -201,12 +203,12 @@ async function outstandingDebts(db: Db) {
 export async function detectRepayments(
   db: Db,
   opts: { llmMode?: GenerateOptions["mode"]; llm?: GenerateOptions } = {},
-): Promise<{ candidates: RepaymentCandidate[]; unaccounted: RepaymentCandidate[]; llmCalls: number }> {
+): Promise<{ candidates: RepaymentCandidate[]; unaccounted: RepaymentCandidate[]; llmCalls: number; llmSkipped: number }> {
   const gen: GenerateOptions = { ...opts.llm, ...(opts.llmMode ? { mode: opts.llmMode } : {}) };
   const debts = await outstandingDebts(db);
   const candidates: RepaymentCandidate[] = [];
   const unaccounted: RepaymentCandidate[] = [];
-  let llmCalls = 0;
+  let llmSkipped = 0;
 
   const { rows: persons } = await db.query<{ id: string; display_name: string; is_user: boolean }>("SELECT id, display_name, is_user FROM person ORDER BY id");
   const friendIds = new Set(persons.filter((p) => !p.is_user).map((p) => p.id));
@@ -222,25 +224,32 @@ export async function detectRepayments(
   const msgIds = new Set(msgs.map((m) => m.id));
   const msgDate = new Map(msgs.map((m) => [m.id, m.d]));
 
+  // Each thread's input depends only on the (precomputed) debts and its own messages, never on another thread's result,
+  // so the calls run concurrently; results are consumed in thread order to keep candidates deterministic.
+  const jobs: RepaymentsInput[] = [];
   for (const [threadId, all] of threads) {
     const senders = new Set(all.map((m) => m.sender_id).filter((x): x is string => !!x));
     const relevantDebts = debts.filter((d) => {
       const friend = d.debtorId === USER_ID ? d.creditorId : d.debtorId;
       return senders.has(friend);
     });
-    if (!relevantDebts.length) continue;
+    if (!relevantDebts.length) { llmSkipped++; continue; } // no outstanding debt with anyone in the thread
     const from = relevantDebts.map((d) => d.date).sort()[0];
-    const input = {
+    const messages = all.filter((m) => m.d >= from).map((m) => ({ id: m.id, senderId: m.sender_id ?? "unknown", time: m.t, date: m.d, text: m.body }));
+    if (!messages.length) { llmSkipped++; continue; } // nothing said after the earliest relevant event
+    jobs.push({
       threadId,
       people: [...new Set([USER_ID, ...senders])].sort().map((id) => ({ id, name: nameOf(id) })),
       outstanding: relevantDebts.map((d) => ({
         eventId: d.eventId, description: d.description, date: d.date, debtorId: d.debtorId, creditorId: d.creditorId,
         amountDollars: d.amountCents / 100,
       })),
-      messages: all.filter((m) => m.d >= from).map((m) => ({ id: m.id, senderId: m.sender_id ?? "unknown", time: m.t, date: m.d, text: m.body })),
-    };
-    const out = await generateStructured(db, repayments, input, gen);
-    llmCalls++;
+      messages,
+    });
+  }
+  const outs = await mapLimit(jobs, getConfig().LLM_CONCURRENCY, (input) => generateStructured(db, repayments, input, gen));
+  const llmCalls = jobs.length;
+  for (const out of outs) {
     for (const r of out.repayments) {
       if (!msgIds.has(r.messageId) || r.amountDollars === undefined || r.amountDollars <= 0) continue;
       const touchesUser = (r.fromId === USER_ID && friendIds.has(r.toId)) || (r.toId === USER_ID && friendIds.has(r.fromId));
@@ -268,7 +277,7 @@ export async function detectRepayments(
   const dedupedMsgs = candidates.filter(
     (m) => !transferCands.some((t) => t.payerId === m.payerId && t.beneficiaryId === m.beneficiaryId && t.amountCents === m.amountCents && days(t.date, m.date) <= 3),
   );
-  return { candidates: [...dedupedMsgs, ...transferCands], unaccounted, llmCalls };
+  return { candidates: [...dedupedMsgs, ...transferCands], unaccounted, llmCalls, llmSkipped };
 }
 
 export interface AttributionCounts {
@@ -279,6 +288,7 @@ export interface AttributionCounts {
   repayments: number;
   unaccounted: number;
   llmCalls: number;
+  llmSkipped: number;
 }
 
 /** Attribute every relevant event, then rebuild all repayment / transfer-level ledger rows. */
@@ -287,7 +297,7 @@ export async function runAttribution(
   opts: { llmMode?: GenerateOptions["mode"]; llm?: GenerateOptions } = {},
 ): Promise<AttributionCounts> {
   const { rows } = await db.query<{ id: string }>("SELECT id FROM event ORDER BY date, id");
-  const counts: AttributionCounts = { events: 0, estimated: 0, assumed: 0, payerReviews: 0, repayments: 0, unaccounted: 0, llmCalls: 0 };
+  const counts: AttributionCounts = { events: 0, estimated: 0, assumed: 0, payerReviews: 0, repayments: 0, unaccounted: 0, llmCalls: 0, llmSkipped: 0 };
   const deps = dbBaseCostDeps(db, opts);
   for (const r of rows) {
     const res = await attributeEvent(db, r.id, deps);
@@ -303,6 +313,7 @@ export async function runAttribution(
 
   const det = await detectRepayments(db, opts);
   counts.llmCalls = det.llmCalls;
+  counts.llmSkipped = det.llmSkipped;
   await db.tx(async (tx) => {
     await tx.query("DELETE FROM ledger_entry WHERE event_id IS NULL AND kind IN ('repayment','unaccounted')");
     for (const c of det.candidates) {

@@ -4,16 +4,19 @@
 // LLM (dollars -> cents) or the message proto that states them. Per-person prices are multiplied by headcount in code.
 // Idempotent: events are upserted by deterministic id, their payer/source rows rebuilt, stale events deleted.
 import { USER_ID } from "@sark/shared";
+import { getConfig } from "../config";
 import type { Db } from "../db/pool";
 import { eventId } from "../domain/ids";
 import { dollarsToCents } from "../domain/money";
-import { generateStructured, mergeDay, type GenerateOptions } from "../llm";
+import { generateStructured, mergeDay, type GenerateOptions, type MergeDayInput, type MergeDayOutput } from "../llm";
+import { mapLimit } from "../util/mapLimit";
 
 export interface MergeCounts {
   days: number;
   events: number;
   payers: number;
   llmCalls: number;
+  llmSkipped: number;
   staleRemoved: number;
 }
 
@@ -51,12 +54,44 @@ export function findEvidenceMessage(
   );
 }
 
+/**
+ * A day with exactly one proto event needs no LLM when the group is unambiguous:
+ *  - a txn proto paid by the user (code derives the payer row from the Nessie txn anyway), or
+ *  - a message proto whose payer(s) the messageDay stage already extracted (basis follows from whether an amount is stated).
+ * Calendar-only and payer-less message protos still call the LLM (it may judge an assumed payer). Returns null = call the LLM.
+ * The deterministic group has confidence 1 and uses the proto's own description/time/people.
+ */
+export function singleProtoGroup(
+  protos: Pick<Proto, "id" | "source" | "time" | "description" | "people_ids" | "details">[],
+  txns: Map<string, { payer_id: string }>,
+  known: Set<string>,
+): MergeDayOutput | null {
+  if (protos.length !== 1) return null;
+  const p = protos[0]!;
+  const base = { protoEventIds: [p.id], description: p.description ?? "", ...(p.time ? { time: p.time } : {}), attendeeIds: p.people_ids, confidence: 1 };
+  if (p.source === "txn") {
+    const t = txns.get(String(p.details.txnId));
+    if (!t || t.payer_id !== USER_ID || !p.description) return null;
+    return { groups: [{ ...base, payers: [] }] };
+  }
+  if (p.source === "message" && p.description) {
+    const listed = (p.details.payers as { personId: string; amountDollars?: number }[] | undefined) ?? [];
+    const single = typeof p.details.payerId === "string" && known.has(p.details.payerId) ? p.details.payerId : null;
+    if (!listed.length && !single) return null;
+    const payers = listed.length
+      ? listed.map((x) => ({ personId: x.personId, ...(x.amountDollars !== undefined ? { amountDollars: x.amountDollars } : {}), basis: x.amountDollars !== undefined ? ("confirmed" as const) : ("estimated" as const) }))
+      : [{ personId: single!, basis: "estimated" as const }];
+    return { groups: [{ ...base, payers }] };
+  }
+  return null;
+}
+
 export async function mergeEvents(
   db: Db,
-  opts: { llmMode?: GenerateOptions["mode"]; llm?: GenerateOptions } = {},
+  opts: { llmMode?: GenerateOptions["mode"]; llm?: GenerateOptions; /** Test hook: always call the LLM (default false). */ noSkip?: boolean } = {},
 ): Promise<MergeCounts> {
   const gen: GenerateOptions = { ...opts.llm, ...(opts.llmMode ? { mode: opts.llmMode } : {}) };
-  const counts: MergeCounts = { days: 0, events: 0, payers: 0, llmCalls: 0, staleRemoved: 0 };
+  const counts: MergeCounts = { days: 0, events: 0, payers: 0, llmCalls: 0, llmSkipped: 0, staleRemoved: 0 };
 
   const { rows: persons } = await db.query<{ id: string; display_name: string }>("SELECT id, display_name FROM person ORDER BY id");
   const known = new Set(persons.map((p) => p.id));
@@ -72,28 +107,42 @@ export async function mergeEvents(
   const byDay = new Map<string, Proto[]>();
   for (const p of protos) (byDay.get(p.d) ?? byDay.set(p.d, []).get(p.d)!).push(p);
 
+  const dayInput = (date: string, dayProtos: Proto[]): MergeDayInput => ({
+    date,
+    people: persons.map((p) => ({ id: p.id, name: p.display_name })),
+    protoEvents: dayProtos.map((p) => ({
+      id: p.id,
+      source: p.source,
+      ...(p.time ? { time: p.time } : {}),
+      ...(p.description ? { description: p.description } : {}),
+      peopleIds: p.people_ids,
+      details: p.details,
+    })),
+  });
+
+  // Prefetch every day's grouping (LLM calls are independent and run concurrently); the per-day processing below stays
+  // sequential and date-ordered because the assumed-payer fallback reads events written by earlier days.
+  const dates = [...byDay.keys()].sort();
+  const outs = new Map<string, MergeDayOutput>();
+  const toCall: string[] = [];
+  for (const date of dates) {
+    const det = opts.noSkip ? null : singleProtoGroup(byDay.get(date)!, txns, known);
+    if (det) {
+      outs.set(date, det);
+      counts.llmSkipped++;
+    } else toCall.push(date);
+  }
+  const fetched = await mapLimit(toCall, getConfig().LLM_CONCURRENCY, (date) =>
+    generateStructured(db, mergeDay, dayInput(date, byDay.get(date)!), gen),
+  );
+  toCall.forEach((date, i) => outs.set(date, fetched[i]!));
+  counts.llmCalls += toCall.length;
+
   const kept: string[] = [];
-  for (const date of [...byDay.keys()].sort()) {
+  for (const date of dates) {
     const dayProtos = byDay.get(date)!;
     counts.days++;
-    const out = await generateStructured(
-      db,
-      mergeDay,
-      {
-        date,
-        people: persons.map((p) => ({ id: p.id, name: p.display_name })),
-        protoEvents: dayProtos.map((p) => ({
-          id: p.id,
-          source: p.source,
-          ...(p.time ? { time: p.time } : {}),
-          ...(p.description ? { description: p.description } : {}),
-          peopleIds: p.people_ids,
-          details: p.details,
-        })),
-      },
-      gen,
-    );
-    counts.llmCalls++;
+    const out = outs.get(date)!;
     const protoById = new Map(dayProtos.map((p) => [p.id, p]));
 
     for (const g of out.groups) {

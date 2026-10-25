@@ -15,11 +15,12 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.11",
+    "@fastify/cors": "^11.1.0",
     "@google/genai": "^1.25.0",
     "@sark/shared": "workspace:*",
-    "@fastify/cors": "^11.1.0",
     "dotenv": "^17.2.3",
     "fastify": "^5.6.1",
+    "langsmith": "^0.11.1",
     "pg": "^8.16.3",
     "zod": "^4.1.12"
   },

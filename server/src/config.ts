@@ -14,6 +14,8 @@ const Env = z.object({
   NESSIE_SOURCE: z.enum(["file", "api"]).default("file"),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default("gemini-3.8-flash"),
+  GEMINI_THINKING: z.enum(["default", "low", "high"]).default("low"),
+  LLM_CONCURRENCY: z.coerce.number().int().min(1).default(4),
   GEMINI_EMBED_MODEL: z.string().default("gemini-embedding-001"),
   EMBED_MODE: z.enum(["local", "live"]).default("local"),
   LLM_MODE: z.enum(["live", "replay"]).default("replay"),
