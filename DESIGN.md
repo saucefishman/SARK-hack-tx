@@ -282,24 +282,32 @@ The user picks up the check for an outing with headcount N and per-person cost `
 
 Every option carries a **range** `[low, high]` and a `basis` reusing the `Basis` vocabulary where possible (`estimated`), because the whole feature rests on cost guesses.
 
-### 15.3 Three candidate sources
+### 15.3 Three candidate sources, two tiers
+
+**Priority.** Doing something *new* with a friend beats repeating what you already know you do. So there are two tiers:
+1. **Top tier, equal priority: A (planned) and C (discovered).** Planned events are things already happening; discovered ideas are new things to try. Both are things to look forward to, and they compete on price fit, not on source.
+2. **Fallback tier: B (recurring).** The user already knows about these. They fill a bundle when the top tier cannot reach the debt, and never displace a new idea of the same price.
+
+In the scoring (§15.4) this is the `trust` term: planned 1.0, discovered 0.9, recurring at most 0.5 × regularity. Discovered is not set equal to planned because its *price* is shakier; that is already charged by the separate price-confidence term and must not be charged twice.
 
 **A. Upcoming shared events (planned).** Future events involving the user and the target friend, from:
-- *Calendar:* `calendar_event` with `start > now` and the friend in `attendee_ids` (alias-resolved, §5).
-- *Messages:* a Muse Spark pass over recent threads that finds plans ("let's do tacos Friday", "I got us concert tickets for the 12th"), resolving relative dates against each message's `sent_at`. Output: `{date, people[], description, venue?, statedCostDollars?, sourceMessageIds[]}`.
+- *Calendar:* `calendar_event` with `start > asOf` and the friend in `attendee_ids` (alias-resolved, §5). A price written as "$59 each" in the title or description is the stated per-person cost.
+- *Messages:* the `planFinder` prompt (Muse Spark) reads recent chats (the last 30 days, one call per thread that has a debtor as a sender) and returns concrete future plans `{date, time?, description, venue?, peopleIds[], perPersonAmountDollars?, payerId?, sourceMessageIds[]}`. Relative dates ("Friday") are resolved against each message's date and weekday, which the prompt supplies. Vague ideas ("we should go sometime"), past-tense mentions and plans with no concrete date are not plans.
 
-Same-day, same-people calendar and message plans are merged with the existing per-day merge prompt (§4 step 3) so one plan is not counted twice. If the **friend** is the one paying a planned event (a ticket they bought), it is excluded as a payback option, since it increases the debt instead.
+**Code, not the model, decides what a chat plan is worth** (`domain/plans.ts`). A proposed plan is rejected when: its date is not a real calendar date (`2026-02-30`), is not after `asOf`, or is more than 180 days out; it cites no message that was in the prompt; it has no known friend in it; or a **friend is paying** (`payerId` is not the user), because that adds to the debt instead of reducing it. Dollars become cents in code; the model never does arithmetic.
 
-**B. Recurring past events (predicted).** From the user's own relevant past events with that friend (`event.is_relevant`, ≥2 attendees):
+**One plan, one candidate.** A calendar entry and a chat mention on the same day with a friend in common are the same plan (`mergePlans`). The calendar entry wins as the user's own record; a price only the chat states is carried over, and both receipts are kept.
+
+**B. Recurring past events (predicted), the fallback tier.** From the user's own relevant past events with that friend (`event.is_relevant`, ≥2 attendees):
 1. Normalize each past event to an **activity key**: merchant if known, else a Muse Spark-normalized label (e.g. `"thai lunch"`, `"climbing gym"`), cached.
 2. Group by `(friend, activity key)`. Require ≥3 occurrences.
 3. Compute cadence in code: median gap in days, weekday mode, gap dispersion. `regularity = 1 − (MAD_gap / median_gap)`, clamped to [0,1].
-4. Predict `next_date = last_date + median_gap` (snapped to the weekday mode). Drop predictions that are already in the past or already covered by a planned event from A at the same venue within ±3 days.
+4. Predict `next_date` by rolling `last_date` forward in whole median gaps until it is after `asOf` (snapped to the weekday mode when ≥60% of occurrences share one). A pattern idle for more than 4 gaps has lapsed and is dropped. Skip a prediction already covered by a planned event from A at the same place within ±3 days.
 5. Cost = `estimateBaseCost` chain (§14), history first, so it is usually the user's own median.
 
 This part is deterministic code over `event` rows. The LLM only normalizes labels.
 
-**C. New recommendations (discovered).** Derive what this pair likes, then price real options with **SerpAPI**:
+**C. New recommendations (discovered), top tier.** Derive what this pair likes, then price real options with **SerpAPI**. Ideas must be *new to the pair*: a result is dropped if it matches (substring, either direction, on normalised text) an activity the pair has already done with each other or anything already planned (`isNovel`). The novelty filter runs before the per-query cut, so a place they already know does not use up a slot. Per friend: the top 3 novel results per query, interleaved across queries and capped at 6 overall, so one query cannot crowd out the others. The solver needs a spread of prices to hit a dollar target, so one result per friend is too few; but about 3 SerpAPI calls per debtor per run is the real cost, not the result count.
 1. *Interests:* Muse Spark over messages retrieved by pgvector (§14) for the pair returns `{interests: [{label, category, evidence_message_ids[]}]}` (e.g. "mini golf", "ramen", "live comedy", "Radiohead"). Plus categories from the recurring patterns in B.
 2. *Search:* per interest, one SerpAPI query by category:
    - events/concerts/shows → `google_events` (date, venue, ticket info)
@@ -316,7 +324,7 @@ Given debt `D` and a candidate set, find the best bundle that approximately sett
 - **Target and tolerance:** `|sum(bundle) − D| ≤ max($10, 10% of D)`. Landing slightly under is preferred to over (the user should not overpay a friend by much). Tolerance is config. Ranges are used: a bundle qualifies when `D` falls within its summed `[low, high]` widened by the tolerance.
 - **Search:** at most 3 options per bundle, candidates pruned to the top ~25 by score. Exhaustive subset search over that set is trivial; use a subset-sum with cent buckets, no solver dependency. No two options on the same date/time unless the calendar says they don't overlap; no duplicate activity key in one bundle.
 - **Score:** weighted sum, higher is better:
-  `closeness` (primary) + `source_trust` (planned 1.0 > recurring 0.7 × regularity > discovered 0.4) + `soonness` (decays over 60 days) + `confidence` (min across items) − `bundle_size_penalty`.
+  `0.50 × closeness` + `0.25 × mean(trust)` + `0.15 × mean(soonness)` + `0.10 × min(price confidence)` − `0.03 × (items − 1)`. Closeness is the distance from the debt to the bundle's price range (overshoot counts double). `trust` is the two-tier priority of §15.3: planned 1.0, discovered 0.9, recurring ≤ 0.5 × regularity. Soonness decays to zero over 120 days (undated ideas score 0.5).
 - **Fallbacks:** if no bundle is within tolerance, return the best **partial** bundle ("covers about $60 of $116") and say so. If the debt is below the cheapest option, offer "settle with a Nessie transfer / message" as the default non-event option so the card is never empty.
 - Pure function in `domain/payback.ts`, table-tested like `split.ts`, with rounding cases and ties broken by option id for determinism.
 
@@ -345,7 +353,7 @@ New routes (DTOs in `packages/shared`, cents on the wire; these are new contract
 | `GET /friends` | existing row gains optional `paybackAvailable: boolean` so the Friends list can lead with "You owe Sam $116 · 3 ways to settle". |
 | `POST /payback/:id/dismiss` | hides a suggestion (stored per friend + candidate ref). |
 
-UI: the Friends card keeps the debt as headline (§1); a "Ways to pay it back" section on the card or detail screen lists suggestions, each with a "why" expander showing the receipts that justify it (the calendar entry, the past dates, the web price source). Copy stays neutral and framed as ideas, never as pressure. The heuristic disclaimer from §8 applies, plus "prices are estimates".
+UI: the Friends card keeps the debt as headline (§1); a "Ways to pay it back" section on the card or detail screen lists suggestions, each with a "why" expander showing the receipts that justify it (the calendar entry, the past dates, the web price source). Copy stays neutral and framed as ideas, never as pressure. Source labels follow the two tiers: `planned` → "planned", `discovered` → "new idea", `recurring` → "tried and true" (the server's receipt text for recurring options already opens with "A tried-and-true one"; discovered ones with "Something new to try together"). The heuristic disclaimer from §8 applies, plus "prices are estimates".
 
 ### 15.7 Privacy, safety, cost
 
@@ -379,10 +387,10 @@ UI: the Friends card keeps the debt as headline (§1); a "Ways to pay it back" s
      │   │                                                                                  │
      │   │  [P0 debts]  friendTotals() → friends where balance < 0   ◀── ledger_entry       │
      │   │       │                                                                          │
-     │   │       ├─▶ [P1 plans]     calendar(start>now) + Muse plan-finder ─▶ future_event│
-     │   │       ├─▶ [P2 patterns]  past relevant events → activity keys ─▶ recurring_pattern│
-     │   │       └─▶ [P3 discover]  pgvector msgs → Muse interests ─▶ SerpAPI ─▶ price_quote
-     │   │                                   (google_events / google_maps)                  │
+     │   │       ├─▶ [P1 plans]     calendar(start>asOf) + chat (planFinder) ─▶ future_event │  top
+     │   │       ├─▶ [P3 discover]  merchant categories → SerpAPI ─▶ price_quote           │  tier
+     │   │       │                  (google_events / google_maps), novel to the pair only  │
+     │   │       └─▶ [P2 patterns]  past relevant events → activity keys ─▶ recurring_pattern │ fallback
      │   │                                                                                  │
      │   │  [P4 price]   estimateBaseCost (stated → history → RAG → web) ─▶ friend_share ranges
      │   │       │                           └ uses split.ts for the "user paid" hypothetical│
@@ -401,18 +409,18 @@ The payback stages are a second leg of the same batch run (`--from payback` runs
 
 | Component | Responsibility | Type | Notes |
 |---|---|---|---|
-| `pipeline/payback/debts.ts` | Select friends the user owes, with `D` | code | Uses `domain/balance.ts`; excludes `assumed` |
-| `pipeline/payback/plans.ts` | Upcoming shared events from calendar and messages | code + Muse Spark (`planFinder` prompt) | Writes `future_event`; dedupes with the merge prompt |
-| `pipeline/payback/patterns.ts` + `domain/recurrence.ts` | Activity keys, cadence, next-date prediction | code (+ Muse Spark `activityLabel`, cached) | `recurrence.ts` is pure and table-tested |
-| `pipeline/payback/interests.ts` | Pair interests from retrieved messages | Muse Spark (`interests` prompt) via `searchMessages` | |
-| `sources/serpapi.ts` | `SerpApiClient`: `searchEvents`, `searchPlaces`; file/replay implementation with the same interface | adapter | One file for all SerpAPI paths and params; human task for key |
-| `pipeline/payback/discover.ts` | Interests → queries → quotes | code + Muse Spark (`serpPrice` prompt) | Cache + budget; URL from SerpAPI response only |
-| `pipeline/payback/candidates.ts` | Unify A/B/C into `payback_candidate` with friend-share ranges | code | Calls `estimateBaseCost` and `splitEvent` |
-| `domain/payback.ts` | Bundle search, scoring, tolerance, fallbacks | **pure** | Heavily unit-tested; the only place that combines options |
-| `api/` routes + `db/queries.ts` readers | Serve suggestions | code | New DTOs in `packages/shared` |
-| App: `PaybackSection` | Render debt-led card and options with receipts | UI | Uses `formatCents`; hooks in `app/src/api/hooks.ts` |
+| `pipeline/payback.ts` | The stage (`runPayback`) and the read path (`solveFriend`, `dismissSuggestion`): debts, plans, patterns, discovery, pricing, persistence | code | One file, P0–P5; uses `domain/balance.ts` (excludes `assumed`) and `splitEvent` for friend shares |
+| `llm/prompts/planFinder.ts` + `llm/schemas/planFinder.ts` | Plans from chat | Muse Spark | The only LLM call in this feature today; fixture key `<asOf>__<thread>` |
+| `domain/plans.ts` | Accept/reject chat plans; merge calendar + chat duplicates | **pure** | Dates, horizon, friend-paying, cited sources; the model proposes, code decides |
+| `domain/recurrence.ts` | Cadence, regularity, next-date prediction | **pure** | Table-tested |
+| `domain/payback.ts` | Bundle search, scoring, tolerance, fallbacks; `TRUST` tiers; `isNovel` | **pure** | The only place that combines options |
+| `domain/serpPrice.ts` | Priced places out of SerpAPI JSON; price-level bands; "Nov 7" → date | **pure** | No network, no LLM |
+| `sources/serpapi.ts` | `SerpApiClient` (`replayClient`, `liveClient`), `cachedSerp` (per-day cache in `price_quote`, call budget) | adapter | One file for all SerpAPI paths and params; human task H13 for the key |
+| `api/app.ts`, `db/queries.ts` | `GET /friends/:id/payback`, `POST /payback/:id/dismiss`, `paybackCount` on `/friends` | code | DTOs in `packages/shared` |
+| `interests` (not built) | Pair interests from retrieved messages → better SerpAPI queries | Muse Spark | `TODO(stub): interests-llm`; today queries come from merchant categories |
+| App: `PaybackSection` (not built) | Render debt-led card and options with receipts | UI | Frontend owner |
 
-LLM calls follow the existing rules: structured output only, temperature 0, cached, zod-validated, replay fixtures for tests. New prompt ids: `planFinder`, `activityLabel`, `interests`, `serpPrice`.
+LLM calls follow the existing rules: structured output only, temperature 0, cached, zod-validated, replay fixtures for tests. Prompt ids built: `planFinder`. Not built: `activityLabel`, `interests`; `serpPrice` was replaced by deterministic extraction (`domain/serpPrice.ts`), which is safer because SerpAPI returns structured fields.
 
 ### 16.3 Request path (what the user sees)
 
@@ -446,8 +454,9 @@ The read path never calls Meta's API or SerpAPI. Only the solver (pure) may re-r
 LLM settings already exist (§17): `META_API_KEY`, `META_BASE_URL`, `LLM_MODEL`, `LLM_REASONING`, `LLM_MODE`. The payback prompts use them unchanged; only the SerpAPI and payback settings below are new.
 
 ```
+AS_OF_DATE=2026-10-25            # demo clock; calendar entries after it are plans. Unset = today
 SERPAPI_API_KEY=                 # human task H13
-SERPAPI_MODE=live                # live | replay  (follows LLM_MODE conventions)
+SERPAPI_MODE=replay              # live | replay  (replay reads server/test/fixtures/serpapi/, never the network)
 SERPAPI_MAX_CALLS=20             # per pipeline run
 HOME_CITY=Austin, Texas          # location for event/place queries
 PAYBACK_TOLERANCE_PCT=10
@@ -459,9 +468,9 @@ New human-only task for `BUILDPLAN.md` §3: **H13 SerpAPI key** (account signup,
 
 ### 16.6 Build order and MVP cut
 
-1. **Must:** `domain/payback.ts` solver with tests; candidates from **seeded** planned events and recurring patterns (add 2 future calendar events and one 4-times recurring pair to `scenario.json` and `truth.json`); API route; debt-led card in the app. Truth check: seeded suggestions sum within tolerance of the seeded debt.
-2. **Should:** message plan-finder; SerpAPI discovery with replay fixtures; evidence expander.
-3. **Could:** live SerpAPI, interest extraction from pgvector, dismiss flow, partial/fallback bundles polish.
+1. **Must (built):** `domain/payback.ts` solver with tests; candidates from **seeded** planned events and recurring patterns; API route. Truth check: seeded suggestions sum within tolerance of the seeded debt. **Not built:** the debt-led card in the app (frontend owner).
+2. **Should (built):** message `planFinder` with calendar/chat dedupe; SerpAPI discovery with replay fixtures; novelty rule and per-friend cap; receipts text on every option (the evidence expander is UI, not built).
+3. **Could (partly built):** dismiss flow (built); partial/fallback bundles (built). **Not built:** live SerpAPI (untested, needs the key), interest extraction from pgvector.
 4. **Won't (MVP):** booking or ticket purchase, payments, suggestions for friends who owe the user, group-level (3+ people) optimization, learning from accepted suggestions.
 
 Stubs follow the repo convention: anything depending on another owner is marked `TODO(stub): <owner>` (for example the live SerpAPI client `TODO(stub): serpapi-live`). `STRUCTURE.md` gets a "Payback" section when code lands.

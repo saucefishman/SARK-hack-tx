@@ -101,6 +101,7 @@ export function generateSeed(input: unknown): GeneratedSeed {
     if (!t.participants.includes(m.sender)) throw new Error(`${m.sender} not in thread ${m.thread}`);
     (perThread.get(m.thread) ?? perThread.set(m.thread, []).get(m.thread)!).push({ seq: seq++, msg: m });
   };
+  sc.planMessages.forEach(addMsg);
   for (const e of events) {
     e.messages.forEach(addMsg);
     for (const r of e.repayments ?? []) if (r.via === "message") addMsg(r.message ?? (() => { throw new Error(`repayment in ${e.key} missing message`); })());

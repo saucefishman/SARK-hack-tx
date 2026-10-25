@@ -72,6 +72,7 @@ The agent must not invent, hardcode, or guess any of these. When blocked on one,
 | H10 | **Git and team operations**: creating the remote, pushing, opening PRs, merging, resolving coordination with teammates' parallel sessions | Outward-facing and shared; commit/push only when asked | Human | Commit locally only when asked; never push. |
 | H11 | **Physical-device and visual QA**: Claude can drive the iOS Simulator, but cannot judge feel on a real phone or a projector | Needs eyes and hardware | Human | Take simulator screenshots and report. |
 | H12 | **Cost/limits decisions**: confirm free-tier Gemini and Tiger Data limits are acceptable for the demo | Billing | Human | Keep call volume small by design (~20 events, cache everything). |
+| H13 | **SerpAPI key** (serpapi.com signup; the free tier is small). Set `SERPAPI_API_KEY` and `SERPAPI_MODE=live`, then confirm the `google_events` and `google_maps` params and response fields in their playground against `server/src/domain/serpPrice.ts` | Needs signup, billing, a secret | Human | Run with `SERPAPI_MODE=replay` (default) and the hand-written fixtures in `server/test/fixtures/serpapi/`. The live client is `TODO(stub): serpapi-live` until then. |
 
 Secrets rule: never commit secrets. They live in `.env` (git-ignored). `.env.example` lists every variable with a placeholder.
 
@@ -90,6 +91,11 @@ MESSAGES_DIR=./seed/generated/instagram                  # folder shaped like an
 CALENDAR_FILE=./seed/generated/calendar.json
 PORT=3000
 EXPO_PUBLIC_API_URL=http://localhost:3000                # H5 for phones
+# Payback suggestions (DESIGN §15/§16). Authoritative list: .env.example
+AS_OF_DATE=2026-10-25                                    # demo clock; unset = today
+SERPAPI_API_KEY=                                         # H13
+SERPAPI_MODE=replay                                      # live | replay
+SERPAPI_MAX_CALLS=20  HOME_CITY=Austin, Texas  PAYBACK_TOLERANCE_PCT=10  PAYBACK_TOLERANCE_MIN_CENTS=1000  PAYBACK_MAX_BUNDLE=3
 ```
 
 ---
@@ -191,6 +197,14 @@ Implement section 8. Can start in Phase 1 against a mock API (`app/src/mocks`) s
 2. Precompute: run live once, let the cache fill, commit nothing secret. Demo runs with `LLM_MODE=replay`, so Gemini limits and latency never matter on stage.
 3. One-command demo: `pnpm demo` = migrate → seed → pipeline (replay) → start server.
 4. Add the "heuristic estimates" disclaimer in the UI (`DESIGN.md` 8).
+
+### Phase 8 — Payback suggestions (`DESIGN.md` §15/§16)
+
+Backend built; app card not. Stage `payback` runs after `ledger`. Priority: planned (calendar + chat) and SerpAPI ideas share the top tier, recurring is the fallback.
+
+1. Done: migration `003_payback.sql`; `domain/{payback,plans,recurrence,serpPrice}.ts` (pure, table-tested); `planFinder` prompt + fixtures; `sources/serpapi.ts` (replay + live, per-day cache, call budget); `pipeline/payback.ts`; `GET /friends/:id/payback`, `POST /payback/:id/dismiss`; seed debt (`x-alex-hamilton`), future plans and chat plans.
+2. Open, app owner: debt-led "Ways to pay it back" card using `PaybackResponse`. Labels: planned → "planned", discovered → "new idea", recurring → "tried and true".
+3. Open: interests from the pair's messages to replace merchant-category queries (`TODO(stub): interests-llm`); live SerpAPI check (H13).
 
 ### Stretch (only if all above is done)
 

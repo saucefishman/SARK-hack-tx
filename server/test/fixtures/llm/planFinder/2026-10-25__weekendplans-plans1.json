@@ -1,0 +1,25 @@
+{
+  "plans": [
+    {
+      "date": "2026-11-20",
+      "description": "Trivia at Hole in the Wall",
+      "venue": "Hole in the Wall",
+      "peopleIds": ["p_me", "p_alex"],
+      "perPersonAmountDollars": 12,
+      "sourceMessageIds": ["weekendplans_plans1:1792324800000:3"]
+    },
+    {
+      "date": "2026-11-07",
+      "description": "Khruangbin concert",
+      "peopleIds": ["p_me", "p_alex"],
+      "sourceMessageIds": ["weekendplans_plans1:1792325100000:2"]
+    },
+    {
+      "date": "2026-12-12",
+      "description": "Austin Symphony",
+      "peopleIds": ["p_me", "p_alex"],
+      "payerId": "p_alex",
+      "sourceMessageIds": ["weekendplans_plans1:1792325400000:1"]
+    }
+  ]
+}
