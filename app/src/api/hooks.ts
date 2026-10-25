@@ -9,11 +9,13 @@ export const useFriend = (id: string) =>
 
 export const useReview = () => useQuery({ queryKey: ["review"], queryFn: getReview });
 
-export function useAnswerReview() {
+export function useAnswerReview(onSaved?: () => Promise<void>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ReviewAnswerBody }) => answerReview(id, body),
     onSuccess: async () => {
+      // Let native cards finish their successful-save exit before refetch removes them.
+      if (onSaved) await onSaved();
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["friends"] }),
         qc.invalidateQueries({ queryKey: ["friend"] }),
