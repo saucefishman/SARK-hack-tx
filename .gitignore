@@ -1,0 +1,13 @@
+node_modules/
+.env
+seed/generated/
+.pgdata/
+dist/
+# Expo
+app/.expo/
+app/dist/
+app/web-build/
+app/ios/
+app/android/
+*.log
+.DS_Store
