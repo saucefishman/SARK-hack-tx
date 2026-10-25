@@ -16,6 +16,8 @@ Possible (unconfirmed): $84 across 2 events (tap to confirm payer)
 
 Sign convention in the stored balance: **positive = friend owes user, negative = user owes friend.** The UI always shows both gross figures next to the net.
 
+When the user owes a friend, the debt leads and the card offers ways to pay it back through shared events (planned, recurring, or newly priced); see §15 and §16.
+
 Consequence for the design: friend-paid events are the *primary* signal, not an edge case. The user's own Nessie rows are the cheap, reliable half; the friend-paid half rests on messages and needs the most care (sections 6c and 6d).
 
 ## 1b. MVP cut line (hackathon)
@@ -248,3 +250,225 @@ Mark each stub `TODO(stub): social` in code and list it in `STRUCTURE.md`.
 - RAG evidence: `event_payer.evidence_message_id` points at the price message; the "on me" message stays in the event context.
 - Without a merchant from the user's own transactions, the venue is the event description (also the web cache key).
 - Seed adds two cases: Sam's karaoke (RAG finds "Ego's was like $20 a head") and Alex's kayak rental (web fixture, $25/person, hand-written replay).
+
+## 15. Payback suggestions: settle a debt by doing something together (added 2026-10-25)
+
+Status: design only. Builds on the ledger (§5), expected-cost chain (§14) and review flow; changes none of their contracts.
+
+### 15.1 Idea and principle
+
+If the user owes a friend money, the product should not only show the number. It should say **"you owe Sam $116. Here are ways to pay it back"**, using events the two of them already have coming up, events they tend to do together, or new ideas priced from the web. Treating Sam to an outing is a payback in kind: it creates a user-paid event where Sam's share lands in the ledger as `you_spent_on_them` and shrinks the balance by the normal §6b/§6d rules. No new accounting is introduced.
+
+**Lead with the debt.** The suggestion is always attached to a debt and shown under it, never as a free-floating "things to do" feed. A friend with no debt owed by the user gets no suggestions. The debt amount, its gross figures and its "possible" caveat (§1) are the first thing on the card; the options are the answer to it.
+
+```
+┌ You owe Sam $116.00 ───────────────── (gross: Sam spent $212 on you, you spent $96) ┐
+│  Ways to pay it back                                                                 │
+│  ● Covers $118 (est.)  Fri 11/01 Concert with Sam        planned · on your calendar  │
+│  ● Covers $112 (est.)  Thai Tuesday ($34) + Climbing ($78)   recurring + new idea    │
+│  ○ Partial $60 (est.)  Uchi dinner, 2 people              you've done this 4 times   │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+Scope: only debts **the user owes** (balance < 0). Friends who owe the user are untouched (no nudging friends, see §8). Only `confirmed` and `estimated` balance counts; `assumed` ("possible") money is never used as the target.
+
+### 15.2 Value of an option = the friend's share, not the bill
+
+The user picks up the check for an outing with headcount N and per-person cost `c`. The friend's share is `c`, and that is what reduces the debt (their own share is the user's own spending on themselves, §6d). So:
+
+`payback_value = friend_share = total / headcount`, computed with `domain/split.ts` using a hypothetical "user paid" event, not with ad-hoc math. Large-group options count only the target friend's slice. All amounts are integer cents; the LLM never does arithmetic (BUILDPLAN rule 4).
+
+Every option carries a **range** `[low, high]` and a `basis` reusing the `Basis` vocabulary where possible (`estimated`), because the whole feature rests on cost guesses.
+
+### 15.3 Three candidate sources
+
+**A. Upcoming shared events (planned).** Future events involving the user and the target friend, from:
+- *Calendar:* `calendar_event` with `start > now` and the friend in `attendee_ids` (alias-resolved, §5).
+- *Messages:* a Gemini pass over recent threads that finds plans ("let's do tacos Friday", "I got us concert tickets for the 12th"), resolving relative dates against each message's `sent_at`. Output: `{date, people[], description, venue?, statedCostDollars?, sourceMessageIds[]}`.
+
+Same-day, same-people calendar and message plans are merged with the existing per-day merge prompt (§4 step 3) so one plan is not counted twice. If the **friend** is the one paying a planned event (a ticket they bought), it is excluded as a payback option, since it increases the debt instead.
+
+**B. Recurring past events (predicted).** From the user's own relevant past events with that friend (`event.is_relevant`, ≥2 attendees):
+1. Normalize each past event to an **activity key**: merchant if known, else a Gemini-normalized label (e.g. `"thai lunch"`, `"climbing gym"`), cached.
+2. Group by `(friend, activity key)`. Require ≥3 occurrences.
+3. Compute cadence in code: median gap in days, weekday mode, gap dispersion. `regularity = 1 − (MAD_gap / median_gap)`, clamped to [0,1].
+4. Predict `next_date = last_date + median_gap` (snapped to the weekday mode). Drop predictions that are already in the past or already covered by a planned event from A at the same venue within ±3 days.
+5. Cost = `estimateBaseCost` chain (§14), history first, so it is usually the user's own median.
+
+This part is deterministic code over `event` rows. The LLM only normalizes labels.
+
+**C. New recommendations (discovered).** Derive what this pair likes, then price real options with **SerpAPI**:
+1. *Interests:* Gemini over messages retrieved by pgvector (§14) for the pair returns `{interests: [{label, category, evidence_message_ids[]}]}` (e.g. "mini golf", "ramen", "live comedy", "Radiohead"). Plus categories from the recurring patterns in B.
+2. *Search:* per interest, one SerpAPI query by category:
+   - events/concerts/shows → `google_events` (date, venue, ticket info)
+   - restaurants/bars/activities → `google_maps` / `google_local` (price level, rating, price range text)
+3. *Price:* Gemini turns the SerpAPI result JSON into `{perPersonLowCents, perPersonHighCents, venue, url, date?}` with structured output. The source URL always comes from the SerpAPI response, never from the model (same rule as §14). Price level only ("$$") maps to a fixed, documented band table in code, flagged low confidence.
+4. Results are cached by `(engine, normalized query, location, day)` with a TTL, and counted against a per-run call budget (`SERPAPI_MAX_CALLS`).
+
+This replaces the Gemini-grounded call as the source for **new-idea pricing** only. §14's grounded web step stays as the cold-start fallback inside `estimateBaseCost`; the two share the cached price-extraction schema so there is one place that turns "web result" into cents.
+
+### 15.4 Combination solver
+
+Given debt `D` and a candidate set, find the best bundle that approximately settles `D`.
+
+- **Target and tolerance:** `|sum(bundle) − D| ≤ max($10, 10% of D)`. Landing slightly under is preferred to over (the user should not overpay a friend by much). Tolerance is config. Ranges are used: a bundle qualifies when `D` falls within its summed `[low, high]` widened by the tolerance.
+- **Search:** at most 3 options per bundle, candidates pruned to the top ~25 by score. Exhaustive subset search over that set is trivial; use a subset-sum with cent buckets, no solver dependency. No two options on the same date/time unless the calendar says they don't overlap; no duplicate activity key in one bundle.
+- **Score:** weighted sum, higher is better:
+  `closeness` (primary) + `source_trust` (planned 1.0 > recurring 0.7 × regularity > discovered 0.4) + `soonness` (decays over 60 days) + `confidence` (min across items) − `bundle_size_penalty`.
+- **Fallbacks:** if no bundle is within tolerance, return the best **partial** bundle ("covers about $60 of $116") and say so. If the debt is below the cheapest option, offer "settle with a Nessie transfer / message" as the default non-event option so the card is never empty.
+- Pure function in `domain/payback.ts`, table-tested like `split.ts`, with rounding cases and ties broken by option id for determinism.
+
+### 15.5 Data model additions
+
+New tables only; no existing column changes. Authoritative DDL goes in `server/migrations/003_payback.sql` when built.
+
+| Table | Key columns | Notes |
+|---|---|---|
+| `future_event` | id, owner_user_id, friend_ids[], date, time?, description, venue?, source (calendar / message), source_refs[], payer_hint?, stated_cost_cents?, confidence | Planned events. Kept apart from `event`, which is past and ledger-bearing, so a plan can never leak into balances. |
+| `recurring_pattern` | id, friend_id, activity_key, occurrences, last_date, median_gap_days, weekday?, regularity, member_event_ids[], next_date_pred | Recomputed idempotently per friend. |
+| `interest` | id, friend_id (or pair), label, category, evidence_message_ids[], created_at | Output of the interest pass; used only to make search queries. |
+| `price_quote` | key, engine, query, location, response, per_person_low_cents, per_person_high_cents, url, fetched_at | SerpAPI cache and shared price-extraction output. |
+| `payback_candidate` | id, friend_id, kind (planned / recurring / discovered), ref_id, title, date?, per_person_low_cents, per_person_high_cents, headcount, friend_share_low_cents, friend_share_high_cents, basis, confidence, evidence_json | One priced option. Rebuilt from sources each run. |
+| `payback_suggestion` | id, friend_id, debt_cents, candidate_ids[], total_low_cents, total_high_cents, kind (exact / partial / fallback), score, computed_at | The solver's output; the app reads this. |
+
+`future_event` and `recurring_pattern` are derived and rebuildable; `price_quote` is a cache. Nothing here is a source of truth for debt, which stays `ledger_entry`.
+
+### 15.6 API and UI
+
+New routes (DTOs in `packages/shared`, cents on the wire; these are new contracts, coordinate before freezing):
+
+| Method and path | Returns |
+|---|---|
+| `GET /friends/:id/payback` | `{ debtCents, toleranceCents, suggestions: [{ id, kind, totalLowCents, totalHighCents, items: [{ title, date?, source, friendShareLowCents, friendShareHighCents, basis, confidence, url?, evidence }] }] }`. Empty when the user owes nothing. |
+| `GET /friends` | existing row gains optional `paybackAvailable: boolean` so the Friends list can lead with "You owe Sam $116 · 3 ways to settle". |
+| `POST /payback/:id/dismiss` | hides a suggestion (stored per friend + candidate ref). |
+
+UI: the Friends card keeps the debt as headline (§1); a "Ways to pay it back" section on the card or detail screen lists suggestions, each with a "why" expander showing the receipts that justify it (the calendar entry, the past dates, the web price source). Copy stays neutral and framed as ideas, never as pressure. The heuristic disclaimer from §8 applies, plus "prices are estimates".
+
+### 15.7 Privacy, safety, cost
+
+- SerpAPI receives only a venue/category/city query. No message text, names or amounts leave the system for it. Gemini sees messages exactly as it does elsewhere (§8).
+- Interest extraction stays within the pair's own threads; it never surfaces a friend's private interests the user could not already see in the user's own messages.
+- Needs a `HOME_CITY` setting for location queries.
+- SerpAPI is paid per search: batch only, cache, per-run budget, and replay mode returns fixtures with no network (same `LLM_MODE=replay` discipline).
+
+### 15.8 Risks
+
+| Risk | Mitigation |
+|---|---|
+| Price guesses make the "sums to the debt" claim look more exact than it is | Show ranges and "est."; tolerance band is visible; partial bundles are labeled as partial |
+| Message plans misread (past tense, hypotheticals, "we should sometime") | Prompt requires a concrete date or weekday; drop `"someday"` plans; show evidence |
+| Recurrence from too little data | Min 3 occurrences, regularity floor, labeled "usually" not "will" |
+| Suggesting an event the friend is paying for | Exclude events with a friend `event_payer` hint |
+| Suggestions read as a nag or a transaction pitch | Only for debts the user owes, user-facing only, dismissible |
+| SerpAPI quota or schema drift | Cache, budget, one adapter file, replay fixtures |
+
+## 16. System design: payback suggestions
+
+### 16.1 Architecture
+
+```
+                     ┌──────────────────────── existing pipeline (§4) ────────────────────────┐
+ Calendar ─┐         │ ingest → embed → proto → merge → relevance → attribution → ledger_entry │
+ Messages ─┼─────────┤                                                              │          │
+ Nessie  ──┘         └──────────────────────────────────────────────────────────────┼──────────┘
+     │                                                                               ▼
+     │   ┌──────────────────────── payback stages (new, batch) ─────────────────────────────┐
+     │   │                                                                                  │
+     │   │  [P0 debts]  friendTotals() → friends where balance < 0   ◀── ledger_entry       │
+     │   │       │                                                                          │
+     │   │       ├─▶ [P1 plans]     calendar(start>now) + Gemini plan-finder ─▶ future_event│
+     │   │       ├─▶ [P2 patterns]  past relevant events → activity keys ─▶ recurring_pattern│
+     │   │       └─▶ [P3 discover]  pgvector msgs → Gemini interests ─▶ SerpAPI ─▶ price_quote
+     │   │                                   (google_events / google_maps)                  │
+     │   │                                                                                  │
+     │   │  [P4 price]   estimateBaseCost (stated → history → RAG → web) ─▶ friend_share ranges
+     │   │       │                           └ uses split.ts for the "user paid" hypothetical│
+     │   │       ▼                                                                          │
+     │   │  payback_candidate ─▶ [P5 solve] domain/payback.ts ─▶ payback_suggestion         │
+     │   └──────────────────────────────────────────────────────────────────────────────────┘
+     │                                                              │
+     │                          Fastify API  GET /friends/:id/payback, GET /friends
+     │                                                              │
+     └───────────────────────────────────────────────────────────▶ App: debt card → "Ways to pay it back"
+```
+
+The payback stages are a second leg of the same batch run (`--from payback` runs P0–P5 only). They only read the ledger and write their own tables, so a failure here cannot change a balance.
+
+### 16.2 Components
+
+| Component | Responsibility | Type | Notes |
+|---|---|---|---|
+| `pipeline/payback/debts.ts` | Select friends the user owes, with `D` | code | Uses `domain/balance.ts`; excludes `assumed` |
+| `pipeline/payback/plans.ts` | Upcoming shared events from calendar and messages | code + Gemini (`planFinder` prompt) | Writes `future_event`; dedupes with the merge prompt |
+| `pipeline/payback/patterns.ts` + `domain/recurrence.ts` | Activity keys, cadence, next-date prediction | code (+ Gemini `activityLabel`, cached) | `recurrence.ts` is pure and table-tested |
+| `pipeline/payback/interests.ts` | Pair interests from retrieved messages | Gemini (`interests` prompt) via `searchMessages` | |
+| `sources/serpapi.ts` | `SerpApiClient`: `searchEvents`, `searchPlaces`; file/replay implementation with the same interface | adapter | One file for all SerpAPI paths and params; human task for key |
+| `pipeline/payback/discover.ts` | Interests → queries → quotes | code + Gemini (`serpPrice` prompt) | Cache + budget; URL from SerpAPI response only |
+| `pipeline/payback/candidates.ts` | Unify A/B/C into `payback_candidate` with friend-share ranges | code | Calls `estimateBaseCost` and `splitEvent` |
+| `domain/payback.ts` | Bundle search, scoring, tolerance, fallbacks | **pure** | Heavily unit-tested; the only place that combines options |
+| `api/` routes + `db/queries.ts` readers | Serve suggestions | code | New DTOs in `packages/shared` |
+| App: `PaybackSection` | Render debt-led card and options with receipts | UI | Uses `formatCents`; hooks in `app/src/api/hooks.ts` |
+
+LLM calls follow the existing rules: structured output only, temperature 0, cached, zod-validated, replay fixtures for tests. New prompt ids: `planFinder`, `activityLabel`, `interests`, `serpPrice`.
+
+### 16.3 Request path (what the user sees)
+
+```
+App opens Friends ──▶ GET /friends ──▶ row: "You owe Sam $116 · 3 ways to settle"
+Tap card ───────────▶ GET /friends/sam/payback
+                       └─ reads payback_suggestion + candidates + evidence (precomputed, no LLM, no SerpAPI)
+User dismisses ─────▶ POST /payback/:id/dismiss ──▶ stored; solver excludes it next run
+User answers a review item (balance changes) ──▶ existing re-run (§13) ──▶ stale flag set
+                       └─ the solver (pure, fast) re-runs for that friend on next read; no external calls
+```
+
+The read path never calls Gemini or SerpAPI. Only the solver (pure) may re-run on demand, because a balance change moves `D` but not the candidate prices.
+
+### 16.4 Key sequences
+
+**Batch (nightly or `pnpm pipeline --from payback`):**
+1. P0 selects debtors. If none, stop.
+2. For each debtor, in parallel with `mapLimit`: P1, P2, P3 produce raw candidates.
+3. P4 prices all candidates through one function so every option is `friend_share = f(total, headcount)` with the same rounding.
+4. P5 writes ranked suggestions. Idempotent: delete-and-rebuild the friend's candidates and suggestions.
+
+**Worked example (seed-style):** Sam is owed $116 (debt `D = $116`, tolerance `$11.60`).
+- Planned: Concert 11/01 on the calendar with Sam; ticket posted at $59/person → friend share $59.
+- Recurring: "Thai lunch" every ~14 days, 4 occurrences, median cost $17/person → share $17.
+- Discovered: Climbing gym day pass via SerpAPI, $28–$32/person.
+- Solver: {Concert 59 + Thai 17 + Climbing 30} = $106 (within $11.60 of $116) and {Concert 59 + Dinner 57} = $116 exact. Output both, best first, each with its evidence.
+
+### 16.5 Config and env (new contracts; add to `.env.example`, covered by the existing env guard test)
+
+```
+SERPAPI_API_KEY=                 # human task H13
+SERPAPI_MODE=live                # live | replay  (follows LLM_MODE conventions)
+SERPAPI_MAX_CALLS=20             # per pipeline run
+HOME_CITY=Austin, Texas          # location for event/place queries
+PAYBACK_TOLERANCE_PCT=10
+PAYBACK_TOLERANCE_MIN_CENTS=1000
+PAYBACK_MAX_BUNDLE=3
+```
+
+New human-only task for `BUILDPLAN.md` §3: **H13 SerpAPI key** (account signup, free tier is small; confirm `google_events` and `google_maps` engine params in their playground). Until then: build `SerpApiClient` against the file/replay implementation and hand-written fixtures.
+
+### 16.6 Build order and MVP cut
+
+1. **Must:** `domain/payback.ts` solver with tests; candidates from **seeded** planned events and recurring patterns (add 2 future calendar events and one 4-times recurring pair to `scenario.json` and `truth.json`); API route; debt-led card in the app. Truth check: seeded suggestions sum within tolerance of the seeded debt.
+2. **Should:** message plan-finder; SerpAPI discovery with replay fixtures; evidence expander.
+3. **Could:** live SerpAPI, interest extraction from pgvector, dismiss flow, partial/fallback bundles polish.
+4. **Won't (MVP):** booking or ticket purchase, payments, suggestions for friends who owe the user, group-level (3+ people) optimization, learning from accepted suggestions.
+
+Stubs follow the repo convention: anything depending on another owner is marked `TODO(stub): <owner>` (for example the live SerpAPI client `TODO(stub): serpapi-live`). `STRUCTURE.md` gets a "Payback" section when code lands.
+
+### 16.7 Evaluation
+
+Extend the §7 hand-labeled dataset: for each debtor, the expected candidate set (planned, recurring) and the expected best bundle(s). Report: recurrence precision (predicted next date within ±3 days of truth), pricing error against seed prices, and bundle correctness (every returned bundle within tolerance of the debt, no excluded event types such as friend-paid). Replay mode must reproduce results exactly.
+
+### 16.8 Open questions
+
+1. Is overshooting acceptable (user pays back more than owed, creating a reverse debt)? Default: allowed up to the tolerance, never beyond.
+2. Should the user be able to say which friends are "payback-eligible" or set a budget cap per option? Default: no, dismiss only.
+3. Home city source: config for MVP, calendar location or message mentions later.
+4. Does the target friend's consent matter? The feature is user-facing only and sends nothing to the friend; any "propose this plan to Sam" action is out of scope and would need a separate design.
