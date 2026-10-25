@@ -17,6 +17,13 @@ const steps = [
   'We find plans you can treat them to, so you even out with time together instead of a payment request.',
 ];
 
+function greeting(hour = new Date().getHours()) {
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 22) return 'Good evening';
+  return 'Good night';
+}
+
 // Front screen: what the app is for, then the next few "your turn" plans across every friend the user owes.
 export default function Home() {
   const feed = useEventFeed();
@@ -31,10 +38,8 @@ export default function Home() {
     <NativeCanvas>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 115 + insets.bottom }} refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={() => { void feed.refresh(); void reviews.refetch(); }} tintColor={palette.accent} colors={[palette.accent]} />}>
         <WarmSurface>
-          <Header onAccount={() => setAccount(true)} />
+          <Header title={greeting()} onAccount={() => setAccount(true)} />
           <View style={s.hero}>
-            <Text style={s.heroTitle}>Friends cover each other.</Text>
-            <Text style={s.heroBody}>Even Stevens keeps track, so you can return the favor with time together.</Text>
             {feed.friends.isSuccess && <View style={s.stats}>
               <View><Text style={s.statLabel}>Your turn to cover</Text><Text style={s.statValue}>{formatCents(totals.owingCents)}</Text></View>
               <View><Text style={s.statLabel}>Friends’ turn</Text><Text style={s.statValue}>{formatCents(totals.owedCents)}</Text></View>
@@ -78,9 +83,7 @@ export default function Home() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
   hero: { paddingHorizontal: 24, paddingBottom: 26 },
-  heroTitle: { fontFamily: 'Poppins', fontSize: 28, lineHeight: 36, letterSpacing: -0.8, color: '#fff9f5' },
-  heroBody: { fontFamily: 'Inter', fontSize: 13, lineHeight: 20, color: '#ffe5dc', marginTop: 6, maxWidth: 320 },
-  stats: { flexDirection: 'row', gap: 28, marginTop: 20, borderTopWidth: 1, borderColor: '#ffffff30', paddingTop: 14 },
+  stats: { flexDirection: 'row', gap: 28, marginTop: 4 },
   statLabel: { fontFamily: 'Inter', fontSize: 10, color: '#ffffffad' },
   statValue: { fontFamily: 'InterMedium', fontSize: 18, color: '#fff', marginTop: 4 },
   lip: { height: 23, borderTopLeftRadius: 31, borderTopRightRadius: 31, backgroundColor: palette.bg },

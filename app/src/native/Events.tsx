@@ -47,8 +47,7 @@ export default function Events() {
   return <View style={s.screen}>
     <NativeCanvas>
       <WarmSurface>
-        <Header onAccount={() => setAccount(true)} />
-        <View style={s.heading}><Text style={s.title}>Events</Text><Text style={s.subtitle}>The things you do, and the people you share them with.</Text></View>
+        <Header title="Events" onAccount={() => setAccount(true)} />
         <View style={s.lip} />
       </WarmSurface>
       {feed.friends.isError ? <ErrorState error={feed.friends.error} onRetry={() => void feed.refresh()} /> :
@@ -136,9 +135,6 @@ export default function Events() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
-  heading: { paddingHorizontal: 24, paddingBottom: 23 },
-  title: { fontFamily: 'Poppins', fontSize: 28, letterSpacing: -0.8, color: '#fff9f5' },
-  subtitle: { fontFamily: 'Inter', fontSize: 12, lineHeight: 19, color: '#ffe5dc', marginTop: 5, maxWidth: 300 },
   lip: { height: 23, borderTopLeftRadius: 31, borderTopRightRadius: 31, backgroundColor: palette.bg },
   suggestion: { backgroundColor: '#f5e7df', borderWidth: 1, borderColor: '#ecd8cd', borderRadius: 25, padding: 20, gap: 13 },
   topLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },

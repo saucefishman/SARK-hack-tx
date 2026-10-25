@@ -334,9 +334,10 @@ export function Header({
   const insets = useSafeAreaInsets();
   return (
     <View style={[k.header, { paddingTop: insets.top + 25 }]}>
-      <Text style={[k.brand, !light && { color: palette.ink }, title ? { fontSize: 32 } : undefined]}>
-        {title ?? 'Even Stevens'}
-        {!title && process.env.EXPO_PUBLIC_DEMO === "1" && <Text style={{ fontFamily: "Inter", fontSize: 9, color: light ? "#fae7e4" : palette.muted }}>  · Demo data</Text>}
+      {/* Screen title only; no app name, so screens read as an app rather than a website. */}
+      <Text style={[k.brand, !light && { color: palette.ink }, { fontSize: 32 }]}>
+        {title ?? ''}
+        {process.env.EXPO_PUBLIC_DEMO === "1" && <Text style={{ fontFamily: "Inter", fontSize: 9, color: light ? "#fae7e4" : palette.muted }}>  · Demo data</Text>}
       </Text>
       <Pressable
         accessibilityRole="button"
