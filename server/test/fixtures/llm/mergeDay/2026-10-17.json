@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_a1f82b0e10c0be87",
+        "pe_cc50e1492d40b87f"
+      ],
+      "description": "Hamilton at Bass Concert Hall",
+      "time": "19:30",
+      "attendeeIds": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "basis": "confirmed",
+          "amountDollars": 540
+        }
+      ],
+      "totalDollars": 540,
+      "confidence": 0.95
+    }
+  ]
+}

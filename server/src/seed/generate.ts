@@ -142,8 +142,19 @@ export function generateSeed(input: unknown): GeneratedSeed {
           return c.nameOnly?.includes(id) ? { displayName: fullNameOf(p) } : { email: emailOf(p), displayName: fullNameOf(p) };
         }),
       };
-    })
-    .sort((a, b) => a.start.dateTime.localeCompare(b.start.dateTime) || a.id.localeCompare(b.id));
+    });
+  for (const p of sc.plans) {
+    const start = ts(`${p.date}T${p.time}`);
+    calendar.push({
+      id: `cal_${p.key}`,
+      summary: p.title,
+      ...(p.description ? { description: p.description } : {}),
+      start: { dateTime: isoZ(start) },
+      end: { dateTime: isoZ(start + p.durationMin * 60000) },
+      attendees: p.attendees.map((id) => ({ email: emailOf(P(id)), displayName: fullNameOf(P(id)) })),
+    });
+  }
+  calendar.sort((a, b) => a.start.dateTime.localeCompare(b.start.dateTime) || a.id.localeCompare(b.id));
 
   // ---- Nessie
   const lastName = (p: ScenarioPerson) => fullNameOf(p).split(" ").slice(1).join(" ") || "Friend";

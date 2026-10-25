@@ -1,0 +1,9 @@
+{
+  "_note": "Hand-written replay fixture in SerpAPI google_maps shape (not a captured response). TODO(stub): serpapi-live",
+  "search_parameters": { "engine": "google_maps", "q": "restaurant in Austin, Texas", "type": "search" },
+  "local_results": [
+    { "position": 1, "title": "Suerte", "type": "Mexican restaurant", "rating": 4.6, "price": "$$$", "link": "https://www.google.com/maps/search/Suerte+Austin" },
+    { "position": 2, "title": "Veracruz All Natural", "type": "Taco restaurant", "rating": 4.7, "price": "$10–20", "link": "https://www.google.com/maps/search/Veracruz+All+Natural+Austin" },
+    { "position": 3, "title": "Odd Duck", "type": "American restaurant", "rating": 4.6, "price": "$$$", "link": "https://www.google.com/maps/search/Odd+Duck+Austin" }
+  ]
+}

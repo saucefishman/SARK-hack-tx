@@ -6,6 +6,7 @@ import { getConfig } from "../config";
 import { getFriendDetail, getFriendSummaries, listOpenReviewItems } from "../db/queries";
 import type { Db } from "../db/pool";
 import type { IngestSources } from "../pipeline/ingest";
+import { dismissSuggestion, solveFriend } from "../pipeline/payback";
 import { applyReviewAnswer } from "../pipeline/review";
 import { runPipeline } from "../pipeline/run";
 
@@ -23,6 +24,19 @@ export async function buildApp(opts: { db: Db; llmMode?: "live" | "replay"; sour
     const detail = await getFriendDetail(db, req.params.id);
     if (!detail) return reply.code(404).send({ error: "friend not found" });
     return detail;
+  });
+
+  // Payback (DESIGN §15.6): debt-led ways to settle. Reads stored candidates; never calls Meta's API or SerpAPI.
+  app.get<{ Params: { id: string } }>("/friends/:id/payback", async (req, reply) => {
+    const { rows } = await db.query("SELECT 1 FROM person WHERE id = $1 AND is_user = false", [req.params.id]);
+    if (!rows[0]) return reply.code(404).send({ error: "friend not found" });
+    return solveFriend(db, req.params.id);
+  });
+
+  app.post<{ Params: { id: string } }>("/payback/:id/dismiss", async (req, reply) => {
+    const friendId = await dismissSuggestion(db, req.params.id);
+    if (!friendId) return reply.code(404).send({ error: "suggestion not found" });
+    return solveFriend(db, friendId);
   });
 
   app.get("/review", async () => listOpenReviewItems(db));

@@ -12,6 +12,8 @@ export const FriendSummary = z.object({
   /** Sum of `assumed` rows; excluded from balance. */
   possibleCents: z.number().int(),
   eventCount: z.number().int(),
+  /** Payback suggestions currently available for this friend (DESIGN §15); only when the user owes them. */
+  paybackCount: z.number().int().optional(),
 });
 export type FriendSummary = z.infer<typeof FriendSummary>;
 
@@ -80,6 +82,47 @@ export type ReviewAnswerBody = z.infer<typeof ReviewAnswerBody>;
 /** POST /review/:id/answer response: updated friend rows. */
 export const ReviewAnswerResponse = z.array(FriendSummary);
 export type ReviewAnswerResponse = z.infer<typeof ReviewAnswerResponse>;
+
+// ---- Payback suggestions (DESIGN §15.6). Cents on the wire; shares are the FRIEND's share of an outing (what reduces the debt).
+
+export const PaybackKind = z.enum(["planned", "recurring", "discovered"]);
+export type PaybackKind = z.infer<typeof PaybackKind>;
+
+export const PaybackItem = z.object({
+  id: z.string(),
+  kind: PaybackKind,
+  title: z.string(),
+  date: IsoDate.nullable(),
+  friendShareLowCents: z.number().int(),
+  friendShareHighCents: z.number().int(),
+  basis: z.enum(["confirmed", "estimated"]),
+  confidence: z.number(),
+  url: z.string().nullable(),
+  /** Human-readable receipt: why this option exists and where its price comes from. */
+  evidence: z.string(),
+});
+export type PaybackItem = z.infer<typeof PaybackItem>;
+
+export const PaybackSuggestion = z.object({
+  id: z.string(),
+  /** exact: settles the debt within tolerance. partial: covers part of it. */
+  kind: z.enum(["exact", "partial"]),
+  totalLowCents: z.number().int(),
+  totalHighCents: z.number().int(),
+  items: z.array(PaybackItem),
+});
+export type PaybackSuggestion = z.infer<typeof PaybackSuggestion>;
+
+/** GET /friends/:id/payback. Empty `suggestions` and debtCents 0 when the user owes this friend nothing. */
+export const PaybackResponse = z.object({
+  friend: PersonRef,
+  debtCents: z.number().int(),
+  toleranceCents: z.number().int(),
+  /** No suggestion settles the debt: the UI also offers a plain transfer. */
+  needsTransfer: z.boolean(),
+  suggestions: z.array(PaybackSuggestion),
+});
+export type PaybackResponse = z.infer<typeof PaybackResponse>;
 
 export const HealthResponse = z.object({ ok: z.literal(true), llmMode: z.enum(["live", "replay"]) });
 export type HealthResponse = z.infer<typeof HealthResponse>;
