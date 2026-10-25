@@ -1,0 +1,24 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_c4f1b21cd301f830",
+        "pe_387047536aa5c789"
+      ],
+      "description": "Karaoke at Ego's",
+      "time": "21:00",
+      "attendeeIds": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "basis": "estimated"
+        }
+      ],
+      "confidence": 0.9
+    }
+  ]
+}

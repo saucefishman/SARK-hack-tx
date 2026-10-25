@@ -1,0 +1,24 @@
+{
+  "events": [
+    {
+      "date": "2026-08-29",
+      "coveredPhrases": [],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "thesquad_squad001:1788021000000:15",
+        "thesquad_squad001:1788021600000:14",
+        "thesquad_squad001:1788021720000:13",
+        "thesquad_squad001:1788047700000:12"
+      ],
+      "description": "event with tickets (meet at the gate)",
+      "time": "19:30",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_riley",
+        "p_jordan"
+      ],
+      "perPersonAmountDollars": 75
+    }
+  ]
+}

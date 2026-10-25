@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_83254e1d620c69a8",
+        "pe_a1f28ae97cd6dfb9"
+      ],
+      "description": "Brunch",
+      "time": "11:00",
+      "attendeeIds": [
+        "p_me",
+        "p_alex",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "basis": "confirmed",
+          "amountDollars": 90
+        }
+      ],
+      "totalDollars": 90,
+      "confidence": 0.95
+    }
+  ]
+}

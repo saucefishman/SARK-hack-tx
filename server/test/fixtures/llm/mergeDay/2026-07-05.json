@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_48793dfaeefa17f1"
+      ],
+      "description": "Whole Foods grocery run",
+      "attendeeIds": [
+        "p_me"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 64
+        }
+      ],
+      "totalDollars": 64,
+      "confidence": 0.9
+    }
+  ]
+}

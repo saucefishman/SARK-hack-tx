@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_987d772432a70ec4",
+        "pe_055d66e4cb97857f"
+      ],
+      "description": "Tacos at Torchy's",
+      "attendeeIds": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 48
+        }
+      ],
+      "totalDollars": 48,
+      "confidence": 0.96
+    }
+  ]
+}

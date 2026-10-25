@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_686b4afd2ff1a3a1",
+        "pe_9046e68307cf0cb3"
+      ],
+      "description": "Pizza night at Jordan's",
+      "time": "19:00",
+      "attendeeIds": [
+        "p_me",
+        "p_jordan",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_jordan",
+          "basis": "confirmed",
+          "amountDollars": 66
+        }
+      ],
+      "totalDollars": 66,
+      "confidence": 0.95
+    }
+  ]
+}

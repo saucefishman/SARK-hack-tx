@@ -25,7 +25,7 @@ Everything below is the design; this is what ships first. Build in this order an
 1. **Must (demo works):** seeded data in Postgres → events → Gemini attendee + payer extraction → directional ledger → friend list UI showing **spent on you** first, **you spent on them** second, then balance, with receipts. Both directions must be present in the seed data.
 2. **Should:** assumed payer + "Possible" display + confirm flow (6d); Gemini repayment detection in messages; `unaccounted` bucket; confidence badge.
 3. **Could:** calendar as a third source; review queue UI; eval script.
-4. **Won't (MVP):** live API sync, pgvector, web-search baselines, per-day merge across all three sources (for MVP, join each transaction to the calendar/messages of the same day), friend-paid events without a stated amount.
+4. **Won't (MVP):** live API sync, per-day merge across all three sources (for MVP, join each transaction to the calendar/messages of the same day), friend-paid events without a stated amount.
 
 ## 2. Glossary
 
@@ -79,7 +79,17 @@ The council agreed on the first four points independently.
 | `event_payer` | event_id, person_id, amount?, basis (confirmed / assumed / estimated), evidence_message_id?, txn_id? | One row per person who paid part of the bill. `confirmed` = Nessie txn or explicit message. `assumed` = best guess at who covered the user, awaiting confirmation. `estimated` = payer known, amount guessed. |
 | `event_source` | event_id, proto_event_id | Provenance. |
 | `ledger_entry` | id, event_id, payer_id, beneficiary_id, amount (≥0), kind (covered / repayment / unaccounted), basis (confirmed / assumed / estimated), evidence_message_id? | Directional: "payer spent `amount` on beneficiary". Source of truth. Per friend F: `spent_on_you` = covered rows F→user; `you_spent_on_them` = covered rows user→F; `balance = you_spent_on_them − spent_on_you`, adjusted by repayment rows. Only `confirmed` and `estimated` rows count toward balance; `assumed` rows show as "possible". |
-| `review_item` | id, txn_id / event_id, question, answer?, status | The "what is this?" queue. |
+| `review_item` | id, kind (alias / attendees / payer), txn_id / event_id, question, option_ids[], answer?, status | The "what is this?" queue. |
+| `llm_cache` (implementation only) | key, model, prompt_id, response, created_at | Gemini record/replay cache. Key = sha256(prompt id + version + model + canonical input). |
+
+Implementation notes (Phase 0, authoritative DDL in `server/migrations/001_init.sql`, types in `packages/shared`):
+- Money columns are integer cents: `txn.amount_cents`, `event.total_cents`, `event_payer.amount_cents`, `ledger_entry.amount_cents`.
+- Ids are text (deterministic hashes for events). `txn` also stores `kind` (purchase / transfer), `merchant_category`, `description`; its date column is `occurred_on` (date only, Nessie has no time).
+- `person_alias` has `status` (confirmed / candidate); a candidate has `person_id` null until resolved through the review queue.
+- `proto_event.details` (jsonb) holds source-specific extras (payer hints, stated amounts, message ids, `looks_social`).
+- `event.anchor_txn_id` records the Nessie transaction an event is anchored on (BUILDPLAN Phase 4 MVP simplification).
+- `ledger_entry.event_id` is nullable (repayments not tied to one event); `beneficiary_id` is null only for `unaccounted`. Each row also carries `confidence` and `txn_id`.
+- `DATABASE_URL` may be `pglite://<dir>` or `pglite://memory` (embedded Postgres) for zero-install dev and tests; the same migrations run on Tiger Data.
 
 ## 6. Steps
 
@@ -163,6 +173,7 @@ Hand-label the seeded dataset: for each event, true attendees, true payer, true 
 - Demo uses seeded/fake or consenting people only.
 - UI language is neutral ("balance", not "cost you").
 - Say plainly in the UI: estimates are heuristic.
+- LangSmith tracing is off by default. When `LANGSMITH_TRACING=true` and a key is set, traces send full prompt text (including message contents and names), model outputs and retrieval snippets to LangSmith. `LANGSMITH_HIDE_INPUTS=true` / `LANGSMITH_HIDE_OUTPUTS=true` send only structure, timing, token counts and metadata. Use with seeded/demo data only, not real user messages.
 
 ## 9. Risks
 
@@ -218,3 +229,22 @@ Mark each stub `TODO(stub): social` in code and list it in `STRUCTURE.md`.
    - Accounts are created per customer (`POST /customers/{id}/accounts`), so seeding is: create customer → account → merchants → purchases. The per-account purchase list/create endpoints were not shown on the docs pages I read, so confirm them in the interactive docs before building the adapter.
    - `amount` is an integer, so whole-dollar amounts only.
 3. **No real data.** The demo is fully synthetic: a seed script writes Nessie transactions and a fake Instagram-format message export for the same 3–5 invented friends. Both come from one source file, so the transactions, messages, and hand-labeled ground truth (section 7) agree by construction.
+
+## 13. Implementation divergences (MVP build, 2026-10-24)
+
+- Payer review "dismiss" = guess rejected: assumed rows removed, event drops out as irrelevant.
+- A transaction-only event with a similar past purchase at the same merchant opens no review item and stays irrelevant.
+- Repayments are stored with `event_id` null. A message repayment is dropped when a Nessie transfer with the same amount and parties exists within ±3 days (no double count).
+- Answering a review item re-runs only that event (relevance → attribution → ledger); repayment detection is not recomputed until the next `--from attribution` run.
+- `messageDay` prompt v2 adds `perPersonAmountDollars` ("$75 each") and `payers[]` (multi-payer bills); code multiplies, the LLM never does arithmetic.
+- Live Nessie (checked 2026-10-24 with a real key; H6 resolved): `/accounts/{id}/purchases` and `/accounts/{id}/transfers` work for list and create. Merchant `category` is a string, not a list. Purchase create rejects `type`. Transfer create accepts only `transaction_date, status, amount, description` (no payee), and the list returns `id` instead of `_id` and answers 404 when empty. `NessieHttpClient` normalizes all of this. Ingest from live Nessie gives the same 15 transactions as the file source. Live txn ids differ from the file's, so replay fixtures only cover `NESSIE_SOURCE=file`.
+- Gemini: `gemini-2.5-flash` is retired for new keys; default model is now `gemini-3.8-flash`.
+- Tiger Data: node-pg treats `sslmode=require` as verify-full and rejects Timescale's private CA; `createDb` applies libpq semantics (`uselibpqcompat=true`: encrypted, CA not verified), same as psql.
+
+## 14. Retrieval and expected-cost baseline (added 2026-10-25, from §11)
+
+- **pgvector retrieval.** New `embed` stage after ingest stores a 768-dim embedding per message (`message.embedding_vec`, HNSW cosine index; `message.embedding` real[] fallback where pgvector is absent; PGlite loads its vector extension). `EMBED_MODE=local` (default) uses a deterministic offline hashing embedder so replay never touches the network; `EMBED_MODE=live` uses Gemini embeddings (`GEMINI_EMBED_MODEL`, confirm in H3).
+- **Expected-cost chain** for friend-paid events with no stated amount: stated → median of the user's past purchases at the merchant → **RAG**: semantic search over earlier messages, Gemini extracts stated prices (per-person, or total + headcount), code takes the median, same-venue quotes first → **web search**: Gemini grounded with Google Search (free-text call, then structured extraction; the source URL always comes from grounding metadata, never from the model) → null. All results are `estimated`; the web step is low confidence.
+- RAG evidence: `event_payer.evidence_message_id` points at the price message; the "on me" message stays in the event context.
+- Without a merchant from the user's own transactions, the venue is the event description (also the web cache key).
+- Seed adds two cases: Sam's karaoke (RAG finds "Ego's was like $20 a head") and Alex's kayak rental (web fixture, $25/person, hand-written replay).

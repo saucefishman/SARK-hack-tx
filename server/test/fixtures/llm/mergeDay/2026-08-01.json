@@ -1,0 +1,49 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_c86bd380ad5ba690",
+        "pe_88ec824387fa561d"
+      ],
+      "description": "Lunch at Torchy's Tacos",
+      "time": "12:30",
+      "attendeeIds": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 45
+        }
+      ],
+      "totalDollars": 45,
+      "confidence": 0.95
+    },
+    {
+      "protoEventIds": [
+        "pe_e0589b8c37762989",
+        "pe_b5cf82a3cc9945a2",
+        "pe_eb6f507d51f68461"
+      ],
+      "description": "Dinner at Franklin BBQ",
+      "time": "19:00",
+      "attendeeIds": [
+        "p_me",
+        "p_sam",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 60
+        }
+      ],
+      "totalDollars": 60,
+      "confidence": 0.93
+    }
+  ]
+}

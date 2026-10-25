@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_a2ce099d022580ff",
+        "pe_9fb60b1e4ea1e20d"
+      ],
+      "description": "Dinner at Lenoir",
+      "time": "19:00",
+      "attendeeIds": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "basis": "confirmed",
+          "amountDollars": 84
+        }
+      ],
+      "totalDollars": 84,
+      "confidence": 0.95
+    }
+  ]
+}

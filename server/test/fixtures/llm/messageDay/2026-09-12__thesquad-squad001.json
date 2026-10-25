@@ -1,0 +1,30 @@
+{
+  "events": [
+    {
+      "date": "2026-09-12",
+      "coveredPhrases": [
+        "I got this one"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "thesquad_squad001:1789232400000:6",
+        "thesquad_squad001:1789232520000:5",
+        "thesquad_squad001:1789232580000:4",
+        "thesquad_squad001:1789232640000:3",
+        "thesquad_squad001:1789232700000:2",
+        "thesquad_squad001:1789252200000:1",
+        "thesquad_squad001:1789252500000:0"
+      ],
+      "description": "dinner at Uchi",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_jordan",
+        "p_riley"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 150
+    }
+  ]
+}

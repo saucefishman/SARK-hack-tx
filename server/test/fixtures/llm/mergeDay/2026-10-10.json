@@ -1,0 +1,23 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_0cc63c83345261b2",
+        "pe_45e731fe852b8464"
+      ],
+      "description": "Kayaking at Lady Bird Lake",
+      "time": "10:00",
+      "attendeeIds": [
+        "p_me",
+        "p_alex"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "basis": "estimated"
+        }
+      ],
+      "confidence": 0.9
+    }
+  ]
+}

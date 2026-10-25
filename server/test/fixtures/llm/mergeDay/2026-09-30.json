@@ -1,0 +1,25 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_fe62b09b7761bcb8",
+        "pe_58ebcf2eaab59d98"
+      ],
+      "description": "Coffee with Sam",
+      "time": "09:00",
+      "attendeeIds": [
+        "p_me",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "basis": "confirmed",
+          "amountDollars": 12
+        }
+      ],
+      "totalDollars": 12,
+      "confidence": 0.95
+    }
+  ]
+}

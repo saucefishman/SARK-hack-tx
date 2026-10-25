@@ -1,0 +1,25 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_468974ee6551ffda",
+        "pe_cf94d8f96eff5f87"
+      ],
+      "description": "Drinks at Ember Bar",
+      "attendeeIds": [
+        "p_me",
+        "p_riley",
+        "p_sam"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 72
+        }
+      ],
+      "totalDollars": 72,
+      "confidence": 0.95
+    }
+  ]
+}

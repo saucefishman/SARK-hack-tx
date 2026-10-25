@@ -1,0 +1,40 @@
+{
+  "events": [
+    {
+      "date": "2026-07-23",
+      "coveredPhrases": [
+        "$90 tab, paid"
+      ],
+      "paymentMentions": [
+        {
+          "messageId": "thesquad_squad001:1784847600000:26",
+          "fromId": "p_alex",
+          "toId": "p_me",
+          "amountDollars": 30,
+          "text": "you two owe me $30 each"
+        },
+        {
+          "messageId": "thesquad_squad001:1784847600000:26",
+          "fromId": "p_riley",
+          "toId": "p_me",
+          "amountDollars": 30,
+          "text": "you two owe me $30 each"
+        }
+      ],
+      "sourceMessageIds": [
+        "thesquad_squad001:1784827800000:29",
+        "thesquad_squad001:1784828100000:28",
+        "thesquad_squad001:1784828160000:27",
+        "thesquad_squad001:1784847600000:26"
+      ],
+      "description": "drinks at Ember",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 90
+    }
+  ]
+}

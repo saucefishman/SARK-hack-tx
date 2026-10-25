@@ -1,0 +1,30 @@
+{
+  "events": [
+    {
+      "date": "2026-07-09",
+      "coveredPhrases": [
+        "Put the whole thing on my card, $120"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "uchicrew_uchicrew:1783616700000:6",
+        "uchicrew_uchicrew:1783616940000:5",
+        "uchicrew_uchicrew:1783617120000:4",
+        "uchicrew_uchicrew:1783617600000:3",
+        "uchicrew_uchicrew:1783635300000:2",
+        "uchicrew_uchicrew:1783635600000:1",
+        "uchicrew_uchicrew:1783636260000:0"
+      ],
+      "description": "dinner at Uchi",
+      "time": "19:30",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_jordan"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 120
+    }
+  ]
+}

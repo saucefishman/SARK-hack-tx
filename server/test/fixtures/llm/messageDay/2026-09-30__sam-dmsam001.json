@@ -1,0 +1,23 @@
+{
+  "events": [
+    {
+      "date": "2026-09-30",
+      "coveredPhrases": [
+        "got our coffees, $12 total"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "sam_dmsam001:1790757000000:2",
+        "sam_dmsam001:1790762400000:1",
+        "sam_dmsam001:1790762700000:0"
+      ],
+      "description": "coffee with Sam",
+      "peopleIds": [
+        "p_me",
+        "p_sam"
+      ],
+      "payerId": "p_sam",
+      "amountDollars": 12
+    }
+  ]
+}

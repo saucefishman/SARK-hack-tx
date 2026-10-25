@@ -1,0 +1,31 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_94f0c2e784ed0f16",
+        "pe_ee04e11e837331c6"
+      ],
+      "description": "Dinner at Odd Duck",
+      "time": "19:30",
+      "attendeeIds": [
+        "p_me",
+        "p_sam",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "basis": "confirmed",
+          "amountDollars": 60
+        },
+        {
+          "personId": "p_riley",
+          "basis": "confirmed",
+          "amountDollars": 40
+        }
+      ],
+      "confidence": 0.95
+    }
+  ]
+}

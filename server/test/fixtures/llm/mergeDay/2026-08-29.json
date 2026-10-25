@@ -1,0 +1,25 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_7c9aca6fe94af131",
+        "pe_edddc1843d269406"
+      ],
+      "description": "Khruangbin concert at Moody Center",
+      "time": "19:30",
+      "attendeeIds": [
+        "p_me",
+        "p_alex",
+        "p_riley",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "basis": "assumed"
+        }
+      ],
+      "confidence": 0.75
+    }
+  ]
+}

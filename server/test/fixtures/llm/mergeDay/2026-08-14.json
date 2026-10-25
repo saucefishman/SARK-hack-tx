@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_3610daccded13fd8"
+      ],
+      "description": "Kemuri Tatsu-ya (transaction only)",
+      "attendeeIds": [
+        "p_me"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 70
+        }
+      ],
+      "totalDollars": 70,
+      "confidence": 0.6
+    }
+  ]
+}

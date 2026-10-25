@@ -1,0 +1,248 @@
+// The ONE Gemini client: cached, record/replay, retrying, zod-validated structured output.
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { z } from "zod";
+import { getConfig, REPO_ROOT } from "../config";
+import type { Db } from "../db/pool";
+import { annotateRun, runTraced, wrapGenAI } from "../obs/tracing";
+import type { PromptDef } from "./types";
+
+export interface LlmClient {
+  /** Returns the raw model text (expected JSON). Throw errors carrying `.status` for HTTP failures. */
+  generateJson(prompt: string, jsonSchema: object): Promise<string>;
+}
+
+export interface GenerateOptions {
+  mode?: "live" | "replay";
+  client?: LlmClient;
+  /** Replay fixtures root (default server/test/fixtures/llm). */
+  fixturesDir?: string;
+  /** Model name for the cache key (default config GEMINI_MODEL). */
+  model?: string;
+  /** Max attempts on 429/5xx (default 4). */
+  maxTries?: number;
+  /** First backoff delay in ms, doubles each retry (default 1000). */
+  backoffMs?: number;
+}
+
+export const DEFAULT_FIXTURES_DIR = path.join(REPO_ROOT, "server/test/fixtures/llm");
+
+/** JSON with recursively sorted object keys, so key order never changes the cache key. */
+export function canonicalJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonicalJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    const body = Object.keys(o)
+      .filter((k) => o[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`);
+    return `{${body.join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
+export function cacheKey(promptId: string, version: string, model: string, input: unknown): string {
+  return createHash("sha256")
+    .update(promptId + version + model + canonicalJson(input))
+    .digest("hex");
+}
+
+/** thinkingConfig for GEMINI_THINKING ("default" = leave unset). Not part of the cache key. */
+export function thinkingConfig(level: "default" | "low" | "high" = getConfig().GEMINI_THINKING): { thinkingConfig?: { thinkingLevel: ThinkingLevel } } {
+  if (level === "default") return {};
+  return { thinkingConfig: { thinkingLevel: level === "high" ? ThinkingLevel.HIGH : ThinkingLevel.LOW } };
+}
+
+/** The generateContent config for a structured-JSON call. */
+export function generationConfig(jsonSchema: object, level?: "default" | "low" | "high") {
+  return { temperature: 0, responseMimeType: "application/json", responseJsonSchema: jsonSchema, ...thinkingConfig(level) };
+}
+
+export function createGeminiClient(apiKey?: string, model?: string, ai?: Pick<GoogleGenAI, "models">): LlmClient {
+  const cfg = getConfig();
+  const key = apiKey ?? cfg.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY missing (human task H3); use LLM_MODE=replay");
+  const sdk = ai ?? wrapGenAI(new GoogleGenAI({ apiKey: key }));
+  const m = model ?? cfg.GEMINI_MODEL;
+  return {
+    async generateJson(prompt, jsonSchema) {
+      const res = await sdk.models.generateContent({
+        model: m,
+        contents: prompt,
+        config: generationConfig(jsonSchema),
+      });
+      return res.text ?? "";
+    },
+  };
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export function retryable(e: unknown): boolean {
+  // A daily quota (free tier: 20 requests/day/model) won't recover within a backoff; fail fast.
+  if (/PerDay|per day/i.test(String((e as Error)?.message ?? ""))) return false;
+  const status = (e as { status?: number; code?: number })?.status ?? (e as { code?: number })?.code;
+  if (typeof status === "number") return status === 429 || status >= 500;
+  return /\b(429|5\d\d)\b|RESOURCE_EXHAUSTED|UNAVAILABLE/.test(String((e as Error)?.message ?? ""));
+}
+
+/** Gemini sometimes emits null for absent optionals; zod .optional() wants undefined. */
+export function stripNulls(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(stripNulls);
+  if (v && typeof v === "object") {
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>)
+        .filter(([, x]) => x !== null)
+        .map(([k, x]) => [k, stripNulls(x)]),
+    );
+  }
+  return v;
+}
+
+export function extractJson(text: string): unknown {
+  const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  return JSON.parse(t);
+}
+
+export async function callWithRetry(client: LlmClient, prompt: string, schema: object, o: GenerateOptions): Promise<string> {
+  const max = o.maxTries ?? 4;
+  const base = o.backoffMs ?? 1000;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await client.generateJson(prompt, schema);
+    } catch (e) {
+      if (attempt >= max || !retryable(e)) throw e;
+      await sleep(base * 2 ** (attempt - 1));
+    }
+  }
+}
+
+export function previewInput(input: unknown): string {
+  const s = JSON.stringify(input);
+  return s.length > 300 ? `${s.slice(0, 300)}...` : s;
+}
+
+export async function cacheGet<O>(db: Db, key: string, schema: z.ZodType<O>): Promise<O | undefined> {
+  const { rows } = await db.query<{ response: unknown }>("SELECT response FROM llm_cache WHERE key = $1", [key]);
+  if (!rows.length) return undefined;
+  return schema.parse(rows[0]!.response);
+}
+
+export async function cachePut(db: Db, key: string, model: string, promptId: string, value: unknown): Promise<void> {
+  await db.query(
+    `INSERT INTO llm_cache (key, model, prompt_id, response) VALUES ($1, $2, $3, $4::jsonb)
+     ON CONFLICT (key) DO UPDATE SET response = EXCLUDED.response, model = EXCLUDED.model`,
+    [key, model, promptId, JSON.stringify(value)],
+  );
+}
+
+/** Where an LLM result came from; recorded on the trace run as metadata.source (and in its outputs). */
+export type LlmSource = "cache" | "fixture" | "live";
+
+/** Traced wrapper (chain run `llm:<promptId>`); identical to calling `body` directly when tracing is off. */
+export async function traceLlmCall<O>(
+  prompt: { id: string; version: string; fixtureKey(input: any): string },
+  input: unknown,
+  model: string,
+  body: () => Promise<{ value: O; source: LlmSource }>,
+): Promise<O> {
+  const meta = { promptId: prompt.id, version: prompt.version, model };
+  const { value } = await runTraced(`llm:${prompt.id}`, { promptId: prompt.id, input }, async () => {
+    const r = await body();
+    annotateRun({ ...meta, fixtureKey: prompt.fixtureKey(input), source: r.source });
+    return r;
+  }, {
+    metadata: meta,
+    processOutputs: (r: { value: unknown; source: LlmSource }) => ({ source: r.source, output: r.value }),
+  });
+  return value;
+}
+
+export async function generateStructured<I, O>(
+  db: Db,
+  prompt: PromptDef<I, O>,
+  input: I,
+  opts: GenerateOptions = {},
+): Promise<O> {
+  const model = opts.model ?? getConfig().GEMINI_MODEL;
+  return traceLlmCall(prompt, input, model, () => generateStructuredInner(db, prompt, input, opts));
+}
+
+async function generateStructuredInner<I, O>(
+  db: Db,
+  prompt: PromptDef<I, O>,
+  input: I,
+  opts: GenerateOptions,
+): Promise<{ value: O; source: LlmSource }> {
+  const cfg = getConfig();
+  const mode = opts.mode ?? cfg.LLM_MODE;
+  const model = opts.model ?? cfg.GEMINI_MODEL;
+  const key = cacheKey(prompt.id, prompt.version, model, input);
+
+  const hit = await cacheGet(db, key, prompt.schema);
+  if (hit !== undefined) return { value: hit, source: "cache" };
+
+  if (mode === "replay") {
+    const fixtureKey = prompt.fixtureKey(input);
+    const file = path.join(opts.fixturesDir ?? DEFAULT_FIXTURES_DIR, prompt.id, `${fixtureKey}.json`);
+    let raw: string | undefined;
+    try {
+      raw = await readFile(file, "utf8");
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    }
+    if (raw === undefined) {
+      throw new Error(
+        `LLM replay miss: promptId=${prompt.id} fixtureKey=${fixtureKey}. ` +
+          `No cache entry and no fixture; create ${file} with the response JSON. Input: ${previewInput(input)}`,
+      );
+    }
+    const value = prompt.schema.parse(stripNulls(JSON.parse(raw)));
+    runValidate(prompt, input, value);
+    await cachePut(db, key, model, prompt.id, value);
+    return { value, source: "fixture" };
+  }
+
+  const client = opts.client ?? createGeminiClient(undefined, model);
+  const jsonSchema = toJsonSchema(prompt.schema);
+  const base = prompt.render(input);
+
+  const attempt = async (text: string): Promise<O> => {
+    const parsed = prompt.schema.parse(stripNulls(extractJson(text)));
+    runValidate(prompt, input, parsed);
+    return parsed;
+  };
+
+  const first = await callWithRetry(client, base, jsonSchema, opts);
+  let value: O;
+  try {
+    value = await attempt(first);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const repairPrompt =
+      `${base}\n\nYour previous response was invalid.\nPrevious response:\n${first}\n\nError:\n${msg}\n\n` +
+      `Return corrected JSON only, matching the schema exactly.`;
+    const second = await callWithRetry(client, repairPrompt, jsonSchema, opts);
+    try {
+      value = await attempt(second);
+    } catch (err2) {
+      throw new Error(
+        `LLM output invalid after repair retry: promptId=${prompt.id}: ${err2 instanceof Error ? err2.message : err2}`,
+      );
+    }
+  }
+  await cachePut(db, key, model, prompt.id, value);
+  return { value, source: "live" };
+}
+
+function runValidate<I, O>(prompt: PromptDef<I, O>, input: I, output: O): void {
+  const v = (prompt as { validate?: (i: I, o: O) => void }).validate;
+  if (v) v(input, output);
+}
+
+export function toJsonSchema(schema: z.ZodType): object {
+  const { $schema: _omit, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
+  return rest;
+}

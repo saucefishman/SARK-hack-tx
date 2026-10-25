@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_2ce4dc29e1fd7bd6",
+        "pe_74a981b3750bd0bf",
+        "pe_8bb5f969cac277ef"
+      ],
+      "description": "Movie at Alamo Drafthouse",
+      "time": "20:00",
+      "attendeeIds": [
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 48
+        }
+      ],
+      "totalDollars": 48,
+      "confidence": 0.96
+    }
+  ]
+}

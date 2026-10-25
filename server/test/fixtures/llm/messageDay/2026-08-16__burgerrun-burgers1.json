@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "date": "2026-08-16",
+      "coveredPhrases": [
+        "I covered it"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "burgerrun_burgers1:1786882200000:3",
+        "burgerrun_burgers1:1786882320000:2",
+        "burgerrun_burgers1:1786892400000:1",
+        "burgerrun_burgers1:1786892700000:0"
+      ],
+      "description": "burgers lunch",
+      "peopleIds": [
+        "p_me",
+        "p_riley",
+        "p_jordan"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 54
+    }
+  ]
+}

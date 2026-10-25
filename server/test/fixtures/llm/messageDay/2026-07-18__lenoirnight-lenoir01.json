@@ -1,0 +1,32 @@
+{
+  "events": [
+    {
+      "date": "2026-07-18",
+      "coveredPhrases": [
+        "dinner's on me, was $84"
+      ],
+      "paymentMentions": [
+        {
+          "messageId": "lenoirnight_lenoir01:1784412300000:0",
+          "amountDollars": 60,
+          "text": "ha beats the $60 Ember tab Alex was telling me about"
+        }
+      ],
+      "sourceMessageIds": [
+        "lenoirnight_lenoir01:1784390400000:4",
+        "lenoirnight_lenoir01:1784390640000:3",
+        "lenoirnight_lenoir01:1784411400000:2",
+        "lenoirnight_lenoir01:1784411700000:1",
+        "lenoirnight_lenoir01:1784412300000:0"
+      ],
+      "description": "dinner at Lenoir",
+      "peopleIds": [
+        "p_me",
+        "p_sam",
+        "p_riley"
+      ],
+      "payerId": "p_sam",
+      "amountDollars": 84
+    }
+  ]
+}
