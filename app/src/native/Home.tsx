@@ -7,7 +7,8 @@ import { useReview } from '../api/hooks';
 import { ErrorState, Loading } from '../components/ui';
 import { formatCents, formatDate } from '../format';
 import { AccountSheet } from './AccountSheet';
-import { Avatar, Header, Icon, NativeCanvas, WarmSurface, palette } from './kit';
+import { Action, Avatar, Header, Icon, NativeCanvas, WarmSurface, palette } from './kit';
+import { Constellation } from './Constellation';
 import { summarizeFriends } from './ledger-presentation';
 import { memoryHook, shareFootnote } from './payback-presentation';
 
@@ -47,6 +48,12 @@ export default function Home() {
           <View style={s.lip} />
         </WarmSurface>
         <View style={s.body}>
+          {feed.friends.isSuccess && (feed.friends.data?.length ?? 0) > 0 && <View style={s.circle}>
+            <Text style={s.sectionTitle}>Your circle</Text>
+            <Text style={s.caption}>Who’s covered whom. Tap a friend.</Text>
+            <View style={s.starCard}><Constellation friends={feed.friends.data ?? []} onSelect={openFriend} /></View>
+            <Action title="See detailed summary" secondary onPress={() => router.push('/people')} />
+          </View>}
           <Text style={s.sectionTitle}>Your turn</Text>
           <Text style={s.caption}>Upcoming plans that pay a friend back.</Text>
           {feed.friends.isError ? <ErrorState error={feed.friends.error} onRetry={() => void feed.refresh()} /> :
@@ -87,6 +94,8 @@ const s = StyleSheet.create({
   statValue: { fontFamily: 'InterMedium', fontSize: 18, color: '#fff', marginTop: 4 },
   lip: { height: 23, borderTopLeftRadius: 31, borderTopRightRadius: 31, backgroundColor: palette.bg },
   body: { paddingHorizontal: 20 },
+  circle: { marginBottom: 28 },
+  starCard: { marginTop: 12, marginBottom: 14, paddingVertical: 14, borderRadius: 24, backgroundColor: '#fffdfb', borderWidth: 1, borderColor: '#eee3dc' },
   sectionTitle: { fontFamily: 'Poppins', fontSize: 20, letterSpacing: -0.5, color: palette.ink },
   caption: { fontFamily: 'Inter', fontSize: 12, lineHeight: 19, color: palette.muted, marginTop: 3 },
   list: { gap: 12, marginTop: 14 },

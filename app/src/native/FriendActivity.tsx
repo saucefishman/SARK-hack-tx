@@ -12,6 +12,7 @@ import { USER_ID, type FriendEntry } from "@sark/shared";
 import { useFriend } from "../api/hooks";
 import { EmptyState, ErrorState, Loading } from "../components/ui";
 import { formatCents } from "../format";
+import { DebtDrain } from "./DebtDrain";
 import { EventRow, EventSheet } from "./EventCard";
 import type { SharedExperience } from "./events-presentation";
 import { FriendSuggestion } from "./FriendSuggestion";
@@ -195,7 +196,8 @@ export default function FriendDetail() {
           </Text>
         )}
       </WarmSurface>
-      <View style={{ paddingHorizontal: 20 }}>
+      <View style={{ paddingHorizontal: 20, gap: 16 }}>
+        <DebtDrain id={friend.personId} name={friend.name} />
         <FriendSuggestion id={friend.personId} name={friend.name} embedded />
       </View>
       <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
