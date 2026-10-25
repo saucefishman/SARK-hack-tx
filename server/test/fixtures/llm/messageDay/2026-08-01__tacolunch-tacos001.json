@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "date": "2026-08-01",
+      "coveredPhrases": [
+        "I'll get this one"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "tacolunch_tacos001:1785585000000:2",
+        "tacolunch_tacos001:1785585120000:1",
+        "tacolunch_tacos001:1785593100000:0"
+      ],
+      "description": "lunch at Torchy's",
+      "time": "12:30",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 45
+    }
+  ]
+}

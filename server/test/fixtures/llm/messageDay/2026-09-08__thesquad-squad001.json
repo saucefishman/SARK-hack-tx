@@ -1,0 +1,43 @@
+{
+  "events": [
+    {
+      "date": "2026-09-08",
+      "coveredPhrases": [
+        "I put $60 on my card",
+        "I put $40 on mine for the rest"
+      ],
+      "paymentMentions": [
+        {
+          "messageId": "thesquad_squad001:1788906900000:8",
+          "fromId": "p_alex",
+          "text": "I'll sort you two out"
+        }
+      ],
+      "sourceMessageIds": [
+        "thesquad_squad001:1788892200000:11",
+        "thesquad_squad001:1788906600000:10",
+        "thesquad_squad001:1788906720000:9",
+        "thesquad_squad001:1788906900000:8",
+        "thesquad_squad001:1788906960000:7"
+      ],
+      "description": "dinner at Odd Duck",
+      "time": "19:30",
+      "peopleIds": [
+        "p_me",
+        "p_sam",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_sam",
+          "amountDollars": 60
+        },
+        {
+          "personId": "p_riley",
+          "amountDollars": 40
+        }
+      ]
+    }
+  ]
+}

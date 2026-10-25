@@ -228,3 +228,11 @@ Mark each stub `TODO(stub): social` in code and list it in `STRUCTURE.md`.
    - Accounts are created per customer (`POST /customers/{id}/accounts`), so seeding is: create customer → account → merchants → purchases. The per-account purchase list/create endpoints were not shown on the docs pages I read, so confirm them in the interactive docs before building the adapter.
    - `amount` is an integer, so whole-dollar amounts only.
 3. **No real data.** The demo is fully synthetic: a seed script writes Nessie transactions and a fake Instagram-format message export for the same 3–5 invented friends. Both come from one source file, so the transactions, messages, and hand-labeled ground truth (section 7) agree by construction.
+
+## 13. Implementation divergences (MVP build, 2026-10-24)
+
+- Payer review "dismiss" = guess rejected: assumed rows removed, event drops out as irrelevant.
+- A transaction-only event with a similar past purchase at the same merchant opens no review item and stays irrelevant.
+- Repayments are stored with `event_id` null. A message repayment is dropped when a Nessie transfer with the same amount and parties exists within ±3 days (no double count).
+- Answering a review item re-runs only that event (relevance → attribution → ledger); repayment detection is not recomputed until the next `--from attribution` run.
+- `messageDay` prompt v2 adds `perPersonAmountDollars` ("$75 each") and `payers[]` (multi-payer bills); code multiplies, the LLM never does arithmetic.

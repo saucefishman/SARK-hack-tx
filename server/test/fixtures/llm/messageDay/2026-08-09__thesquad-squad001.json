@@ -1,0 +1,39 @@
+{
+  "events": [
+    {
+      "date": "2026-08-09",
+      "coveredPhrases": [
+        "I got it"
+      ],
+      "paymentMentions": [
+        {
+          "messageId": "thesquad_squad001:1786311240000:17",
+          "amountDollars": 120,
+          "text": "can't believe the Uchi bill was $120"
+        },
+        {
+          "messageId": "thesquad_squad001:1786311600000:16",
+          "fromId": "p_riley",
+          "amountDollars": 25,
+          "text": "my parking was $25"
+        }
+      ],
+      "sourceMessageIds": [
+        "thesquad_squad001:1786298400000:22",
+        "thesquad_squad001:1786298520000:21",
+        "thesquad_squad001:1786298580000:20",
+        "thesquad_squad001:1786298700000:19",
+        "thesquad_squad001:1786311000000:18"
+      ],
+      "description": "tacos",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_riley"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 48
+    }
+  ]
+}

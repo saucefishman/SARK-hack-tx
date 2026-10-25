@@ -1,0 +1,11 @@
+{
+  "repayments": [
+    {
+      "messageId": "alex_dmalex01:1783851300000:0",
+      "fromId": "p_alex",
+      "toId": "p_me",
+      "amountDollars": 30,
+      "note": "Repays the Uchi dinner share"
+    }
+  ]
+}

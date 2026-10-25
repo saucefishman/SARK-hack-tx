@@ -22,3 +22,13 @@ export function defaultSources(config: Config): IngestSources {
         : new NessieFileSource(config.resolvePath(config.NESSIE_FILE)),
   };
 }
+
+/** File sources over a `generated/` seed directory (people.json, instagram/, calendar.json, nessie.json). */
+export function sourcesFromDir(dir: string): IngestSources {
+  return {
+    people: new FilePeopleSource(path.join(dir, "people.json")),
+    messages: new InstagramMessageSource(path.join(dir, "instagram")),
+    calendar: new FileCalendarSource(path.join(dir, "calendar.json")),
+    nessie: new NessieFileSource(path.join(dir, "nessie.json")),
+  };
+}

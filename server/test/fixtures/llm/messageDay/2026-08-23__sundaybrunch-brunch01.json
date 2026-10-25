@@ -1,0 +1,27 @@
+{
+  "events": [
+    {
+      "date": "2026-08-23",
+      "coveredPhrases": [
+        "got brunch, $90 total, no worries"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "sundaybrunch_brunch01:1787475600000:4",
+        "sundaybrunch_brunch01:1787475780000:3",
+        "sundaybrunch_brunch01:1787476200000:2",
+        "sundaybrunch_brunch01:1787490900000:1",
+        "sundaybrunch_brunch01:1787491200000:0"
+      ],
+      "description": "brunch",
+      "time": "11:00",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_sam"
+      ],
+      "payerId": "p_alex",
+      "amountDollars": 90
+    }
+  ]
+}

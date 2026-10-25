@@ -1,0 +1,26 @@
+{
+  "events": [
+    {
+      "date": "2026-09-26",
+      "coveredPhrases": [
+        "I got it"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "comedor_comedor1:1790442000000:3",
+        "comedor_comedor1:1790442120000:2",
+        "comedor_comedor1:1790442180000:1",
+        "comedor_comedor1:1790459100000:0"
+      ],
+      "description": "dinner at Comedor",
+      "time": "19:00",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 100
+    }
+  ]
+}

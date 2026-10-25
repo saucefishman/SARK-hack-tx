@@ -1,0 +1,27 @@
+{
+  "events": [
+    {
+      "date": "2026-07-02",
+      "coveredPhrases": [
+        "I got it"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "emberregulars_ember001:1783017600000:9",
+        "emberregulars_ember001:1783017720000:8",
+        "emberregulars_ember001:1783018200000:7",
+        "emberregulars_ember001:1783031400000:6",
+        "emberregulars_ember001:1783032060000:5"
+      ],
+      "description": "drinks at Ember",
+      "time": "20:00",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_jordan"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 60
+    }
+  ]
+}

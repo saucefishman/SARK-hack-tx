@@ -5,10 +5,11 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { getConfig } from "../config";
 import { getFriendDetail, getFriendSummaries, listOpenReviewItems } from "../db/queries";
 import type { Db } from "../db/pool";
+import type { IngestSources } from "../pipeline/ingest";
 import { applyReviewAnswer } from "../pipeline/review";
 import { runPipeline } from "../pipeline/run";
 
-export async function buildApp(opts: { db: Db; llmMode?: "live" | "replay" }): Promise<FastifyInstance> {
+export async function buildApp(opts: { db: Db; llmMode?: "live" | "replay"; sources?: IngestSources }): Promise<FastifyInstance> {
   const { db } = opts;
   const llmMode = opts.llmMode ?? getConfig().LLM_MODE;
   const app = Fastify();
@@ -37,7 +38,7 @@ export async function buildApp(opts: { db: Db; llmMode?: "live" | "replay" }): P
   });
 
   if (process.env.NODE_ENV !== "production") {
-    app.post("/dev/rerun", async () => runPipeline(db, { llmMode: "replay" }));
+    app.post("/dev/rerun", async () => runPipeline(db, { llmMode: "replay", sources: opts.sources }));
   }
 
   return app;

@@ -1,0 +1,29 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_5a0808324cab38d1",
+        "pe_44e3469d75fc6d59",
+        "pe_d536963d66c8a91d"
+      ],
+      "description": "Dinner at Uchi",
+      "time": "19:30",
+      "attendeeIds": [
+        "p_me",
+        "p_alex",
+        "p_sam",
+        "p_jordan",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 150
+        }
+      ],
+      "totalDollars": 150,
+      "confidence": 0.97
+    }
+  ]
+}

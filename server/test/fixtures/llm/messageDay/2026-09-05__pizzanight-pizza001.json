@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "date": "2026-09-05",
+      "coveredPhrases": [
+        "I've got it"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "pizzanight_pizza001:1788631200000:3",
+        "pizzanight_pizza001:1788631380000:2",
+        "pizzanight_pizza001:1788643800000:1",
+        "pizzanight_pizza001:1788644100000:0"
+      ],
+      "description": "pizza night at Jordan's",
+      "peopleIds": [
+        "p_me",
+        "p_jordan",
+        "p_sam"
+      ],
+      "payerId": "p_jordan",
+      "amountDollars": 66
+    }
+  ]
+}

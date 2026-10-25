@@ -1,0 +1,27 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_e333983aabe9be4d",
+        "pe_ca716cc3dabf465d",
+        "pe_00bbf61b02ded050"
+      ],
+      "description": "Lunch at Mighty Fine Burgers",
+      "time": "13:00",
+      "attendeeIds": [
+        "p_me",
+        "p_riley",
+        "p_jordan"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 54
+        }
+      ],
+      "totalDollars": 54,
+      "confidence": 0.96
+    }
+  ]
+}

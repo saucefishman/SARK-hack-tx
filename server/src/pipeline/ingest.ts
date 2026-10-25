@@ -42,7 +42,7 @@ export async function resolvePerson(db: Db, kind: AliasKind | AliasKind[], value
 const NAME_KINDS: AliasKind[] = ["display_name", "nickname", "handle"];
 
 /** Earliest non-user person whose name/nickname appears as a whole word in free text (e.g. a transfer description). */
-async function findNamedFriend(db: Db, text: string): Promise<string | null> {
+export async function findNamedFriend(db: Db, text: string): Promise<string | null> {
   const { rows } = await db.query<{ person_id: string; value: string }>(
     `SELECT a.person_id, a.value FROM person_alias a JOIN person p ON p.id = a.person_id
      WHERE p.is_user = false AND a.kind = ANY($1)`,

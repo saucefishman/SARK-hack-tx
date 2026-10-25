@@ -18,7 +18,7 @@ export interface MessageDayInput {
 
 export const messageDay: PromptDef<MessageDayInput, MessageDayOutput> = {
   id: "messageDay",
-  version: "1",
+  version: "2",
   schema: MessageDayOutput,
   fixtureKey: (i) => `${i.date}__${slug(i.threadId)}`,
   render: (i) => `You extract shared social outings (meals, drinks, trips, activities) from one day of one chat thread.
@@ -33,6 +33,8 @@ Each event:
 - peopleIds: ids of everyone who attended, per the text (include "p_me" if the user was there).
 - payerId: id of who paid/covered the bill, only if the text says so ("I got it", "my treat"). Else omit.
 - amountDollars: the total/bill amount for THIS event, only if stated for this event. Else omit.
+- perPersonAmountDollars: a stated PER-PERSON price for THIS event (e.g. "$75 each"), only if stated. Never multiply it yourself and never put it in amountDollars.
+- payers: use when more than one person paid part of the bill: [{personId, amountDollars?}] with the amount each says they paid. Omit for a single payer (use payerId).
 - coveredPhrases: verbatim phrases showing who covered whom (e.g. "I got dinner").
 - paymentMentions: money moving between people mentioned in the messages (venmo, "sent you $20", "you owe me"): {messageId, fromId?, toId?, amountDollars?, text}.
 - sourceMessageIds: ids of messages supporting this event.

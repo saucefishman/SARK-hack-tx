@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "protoEventIds": [
+        "pe_c0a3bb5f9093bf1f",
+        "pe_b8a9091f2c8d8ddc"
+      ],
+      "description": "Dinner at Comedor",
+      "time": "19:00",
+      "attendeeIds": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_me",
+          "basis": "confirmed",
+          "amountDollars": 100
+        }
+      ],
+      "totalDollars": 100,
+      "confidence": 0.95
+    }
+  ]
+}

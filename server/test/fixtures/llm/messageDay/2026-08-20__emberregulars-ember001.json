@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "date": "2026-08-20",
+      "coveredPhrases": [
+        "I got this one, don't even look at the check"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "emberregulars_ember001:1787254200000:4",
+        "emberregulars_ember001:1787254380000:3",
+        "emberregulars_ember001:1787254800000:2",
+        "emberregulars_ember001:1787268000000:1",
+        "emberregulars_ember001:1787268120000:0"
+      ],
+      "description": "drinks at Ember",
+      "peopleIds": [
+        "p_me",
+        "p_jordan",
+        "p_alex"
+      ],
+      "payerId": "p_jordan"
+    }
+  ]
+}

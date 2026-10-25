@@ -1,0 +1,11 @@
+{
+  "repayments": [
+    {
+      "messageId": "jordan_dmjord01:1789376400000:0",
+      "fromId": "p_jordan",
+      "toId": "p_me",
+      "amountDollars": 60,
+      "note": "Settles both Uchi dinners (two debts, one payment)"
+    }
+  ]
+}

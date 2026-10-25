@@ -1,0 +1,24 @@
+{
+  "events": [
+    {
+      "date": "2026-08-01",
+      "coveredPhrases": [
+        "$60 for the three of us, done"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "franklinbbq_franklin:1785607800000:2",
+        "franklinbbq_franklin:1785608100000:1",
+        "franklinbbq_franklin:1785619200000:0"
+      ],
+      "description": "dinner out (waiting in line)",
+      "peopleIds": [
+        "p_me",
+        "p_sam",
+        "p_jordan"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 60
+    }
+  ]
+}

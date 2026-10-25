@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "date": "2026-09-19",
+      "coveredPhrases": [
+        "got it"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "riley_dmriley1:1789840800000:3",
+        "riley_dmriley1:1789840920000:2",
+        "riley_dmriley1:1789858200000:1",
+        "riley_dmriley1:1789858320000:0"
+      ],
+      "description": "movie at Alamo",
+      "time": "20:00",
+      "peopleIds": [
+        "p_me",
+        "p_riley"
+      ],
+      "payerId": "p_me",
+      "amountDollars": 48
+    }
+  ]
+}

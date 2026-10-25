@@ -3,7 +3,9 @@ import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../src/api/app";
 import type { Db } from "../src/db/pool";
+import { sourcesFromDir } from "../src/sources";
 import { testDb } from "./helpers";
+import { writeTempSeed } from "./tempSeed";
 
 let db: Db;
 let app: FastifyInstance;
@@ -102,8 +104,13 @@ describe("api", () => {
     expect((await post("r1", { dismiss: true })).statusCode).toBe(409);
   });
 
-  it("POST /dev/rerun exists (stub throws)", async () => {
-    const res = await app.inject({ method: "POST", url: "/dev/rerun" });
-    expect(res.statusCode).toBe(500);
+  it("POST /dev/rerun runs the pipeline (replay) and returns stage counts", async () => {
+    const fresh = await testDb();
+    const rerunApp = await buildApp({ db: fresh, llmMode: "replay", sources: sourcesFromDir(writeTempSeed()) });
+    const res = await rerunApp.inject({ method: "POST", url: "/dev/rerun" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ "ingest.persons": 5, "merge.events": 20, "ledger.repayments": 4 });
+    await rerunApp.close();
+    await fresh.end();
   });
 });

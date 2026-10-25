@@ -1,24 +1,12 @@
 // `pnpm seed [--push-nessie]`: scenario.json -> seed/generated/* + seed/truth.json.
-import fs from "node:fs";
-import path from "node:path";
-import { getConfig, REPO_ROOT } from "../config";
-import { generateSeed, seedFiles } from "../seed/generate";
+import { getConfig } from "../config";
+import { writeSeed } from "../seed/write";
 import { pushNessie } from "../seed/push";
 import { NessieHttpClient } from "../sources/nessie";
 
-const seedDir = path.join(REPO_ROOT, "seed");
-const scenario = JSON.parse(fs.readFileSync(path.join(seedDir, "scenario.json"), "utf8"));
-const seed = generateSeed(scenario);
-const files = seedFiles(seed);
-
-fs.rmSync(path.join(seedDir, "generated"), { recursive: true, force: true });
-for (const [rel, content] of Object.entries(files)) {
-  const full = path.join(seedDir, rel);
-  fs.mkdirSync(path.dirname(full), { recursive: true });
-  fs.writeFileSync(full, content);
-}
+const { seed, files, events } = writeSeed();
 console.log(
-  `seed: ${Object.keys(files).length} files, ${scenario.events.length} events, ` +
+  `seed: ${Object.keys(files).length} files, ${events} events, ` +
     `${seed.nessie.purchases.length} purchases, ${seed.nessie.transfers.length} transfers, ` +
     `${seed.instagramThreads.length} threads, ${seed.calendar.length} calendar events`,
 );

@@ -15,6 +15,10 @@ export const MessageDayEvent = z.object({
   peopleIds: z.array(z.string()),
   payerId: z.string().optional(),
   amountDollars: z.number().optional(),
+  /** Stated per-person price (e.g. "$75 each"); code multiplies by headcount. */
+  perPersonAmountDollars: z.number().optional(),
+  /** Several payers, each with the amount the text states they paid (e.g. "I put $60 on my card"). */
+  payers: z.array(z.object({ personId: z.string(), amountDollars: z.number().optional() })).optional(),
   coveredPhrases: z.array(z.string()),
   paymentMentions: z.array(PaymentMention),
   sourceMessageIds: z.array(z.string()),

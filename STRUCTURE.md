@@ -46,13 +46,26 @@ Format: `path` — `Name` — one-line purpose
 
 ## LLM (Stream B)
 - `server/src/llm/gemini.ts` — `generateStructured(db, prompt, input, opts?)`, `LlmClient`, `createGeminiClient`, `cacheKey`, `canonicalJson` — the one Gemini client: cache → fixture (replay) → live with retry/repair
-- `server/src/llm/prompts/{messageDay,txnSocial,mergeDay,repayments}.ts` — PromptDefs + input types; `validateMergeGroups`
+- `server/src/llm/prompts/{messageDay,txnSocial,mergeDay,repayments}.ts` — PromptDefs + input types; `validateMergeGroups` (messageDay is v2: adds `perPersonAmountDollars`, `payers[]`)
 - `server/src/llm/prompts/util.ts` — `slug`, `ValidatedPromptDef`, `RULES`, `json`
 - `server/src/llm/schemas/*.ts` — zod output schemas
 - `server/src/llm/index.ts` — re-exports
 - `server/test/fixtures/llm/<promptId>/<fixtureKey>.json` — hand-written replay fixtures for the seed scenario
 
+## Pipeline (Phase 4)
+- `server/src/pipeline/protoEvents.ts` — `buildProtoEvents(db, opts)` — thread×day messageDay, calendar direct, purchases via txnSocial → `proto_event`
+- `server/src/pipeline/merge.ts` — `mergeEvents(db, opts)`, `findEvidenceMessage` — per-day mergeDay → `event`/`event_source`/`event_payer`
+- `server/src/pipeline/relevance.ts` — `evaluateEvent`, `runRelevance`, `attendeesReviewId` — relevance rule + attendees review items
+- `server/src/pipeline/attribution.ts` — `attributeEvent`, `runAttribution`, `detectRepayments`, `dbBaseCostDeps`, `payerReviewId` — payer basis rules, estimateBaseCost with DB history, repayments (message + transfer, deduped)
+- `server/src/pipeline/ledger.ts` — `rebuildEventLedger(db, id)`, `runLedger(db)` — splitEvent → `ledger_entry`, idempotent per event
+- `server/src/pipeline/run.ts` — `runPipeline(db, {from?, llmMode?, sources?})`, `Stage`, `STAGES`, `resetPipelineTables` — orchestrator
+- `server/src/pipeline/review.ts` — `applyReviewAnswer(db, id, body)`, `reprocessEvent(db, eventId)` — persist answer, re-run only the affected event
+- `server/src/sources/index.ts` — `sourcesFromDir(generatedDir)` — file sources over a seed `generated/` dir
+- `server/src/seed/write.ts` — `writeSeed(seedDir?)`, `loadScenario()` — shared by seed/demo/eval
+- `server/src/cli/{run-pipeline,eval,demo,llm-smoke}.ts` — `pnpm --filter server pipeline|eval|demo` and live Gemini smoke test (H3)
+
 ## API
+- `server/src/api/server.ts` — `startServer(db, {port?, llmMode?})` — listen on a migrated Db
 - `server/src/db/queries.ts` — `listPersons`, `listLedgerEntries`, `getFriendSummaries`, `getFriendDetail`, `listOpenReviewItems` — typed reads mapped to shared DTOs
 - `server/src/api/app.ts` — `buildApp({db, llmMode?})` — Fastify app, all BUILDPLAN §7 routes
 - `server/src/api/main.ts` — server entry (`pnpm --filter server dev`)
