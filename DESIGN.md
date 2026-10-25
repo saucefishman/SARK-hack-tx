@@ -92,7 +92,7 @@ The council agreed on the first four points independently.
 4. **Relevance.** `is_relevant = attendees ≥ 2 AND paid AND source_count ≥ 2`. Irrelevant events are stored, flagged, and excluded from the ledger. A transaction-only event with no similar past transaction goes to the **review queue** ("We see $84 at Uchi on 3/12. Who was there?"); the answer is written back and re-runs relevance.
 5. **Debt attribution.**
    - *User paid:* `share = total / headcount`. For each other attendee, ledger entry `+share` (kind `covered`).
-   - *Friend paid:* needs an amount. Take it from messages ("I got dinner, $120") if present; otherwise use a Muse past-similar-event median as an estimate, and mark confidence low. Entry `-share` for the user.
+   - *Friend paid:* needs an amount. Take it from messages ("I got dinner, $120") if present; otherwise run `estimate_base_cost` (message → history search → Muse cold-start web search, see 6c) and mark confidence low. Entry `-share` for the user.
    - *Repayments:* Gemini scans later messages in the thread for payments or settlements ("venmo'd you $20"). Each becomes a `repayment` entry that offsets the balance. Payments made outside Nessie (cash, Venmo) only show up this way.
    - *Remainder:* anything that cannot be explained lands in `unaccounted`. Never silently dropped.
 6. **Ledger.** Recompute balances from `ledger_entry`. Idempotent: delete-and-rebuild entries for an event on rerun.
@@ -119,7 +119,13 @@ Evidence here is testimony, not a Nessie row, so the anchor is a message or cale
 - **Explicit trigger (strong):** message like "I got this" / "thanks for covering me". Gemini extracts `{payer, amount?, attendees, evidence_message_id}`.
 - **Implicit trigger (weak):** social event with ≥2 attendees and no user transaction near that time. Payer unknown.
 
-Amount, in order: stated in a message → median of the user's past spend at the same merchant/event type (labeled estimate) → `null` (event counted, no dollars).
+Amount, in order (this is `estimate_base_cost`, the expected-cost step):
+1. Stated in a message.
+2. **History search:** Muse looks for past similar events (same merchant/event type) and takes the median, using the user's own past spend. Labeled `estimated`.
+3. **Cold-start search:** if history finds nothing, Muse runs a *separate* web search (SerpAPI / Muse web-search tool) for a typical per-person cost of this merchant or event type, and Gemini turns the results into one number with a source link. Labeled `estimated`, confidence low. This is a distinct step so a missing history never blocks an estimate. Cache by merchant + event type.
+4. `null` (event counted, no dollars).
+
+MVP: step 3 is a stub (`TODO(stub): muse-cold-start`); the function returns null at step 3 and seeded data covers steps 1–2.
 
 Debt: `share = total / headcount`; ledger entry payer = friend, beneficiary = user, `share` (this is the "spent on you" half). Multi-payer and assumed-payer handling: see 6d.
 

@@ -166,7 +166,7 @@ MVP simplification from `DESIGN.md` 1b: each social transaction anchors its own 
 5. `pipeline/attribution.ts`:
    - User paid (6b): from the Nessie txn.
    - Friend paid (6c): `basis` rules: explicit + amount → `confirmed`; explicit, no amount → `estimateBaseCost` → `estimated`; implicit (social event, no user txn) → pick assumed payer per 6d, `basis = assumed`, create `review_item` (kind `payer`).
-   - `domain/estimateBaseCost.ts`: message-stated amount → median of the user's past spend at the same merchant/event type → null. Stub marker `TODO(stub): social` at the top of the chain.
+   - `domain/estimateBaseCost.ts`: message-stated amount → median of the user's past spend at the same merchant/event type (history search) → **cold-start search** → null. The cold-start step is a separate function `coldStartCost(merchant, eventType)` behind an interface: it calls Muse's web-search tool (or SerpAPI), has Gemini return `{perPersonCents, sourceUrl, confidence}` as structured output, and caches by merchant + event type. MVP: stub that returns null, marked `TODO(stub): muse-cold-start`; do not call out to the network. Stub marker `TODO(stub): social` at the top of the chain.
    - Repayments via the `repayments` prompt and via Nessie transfers whose `description` names a friend: write `kind = repayment` rows.
    - Anything unexplained: `kind = unaccounted`.
 6. `pipeline/ledger.ts` + `domain/balance.ts`: per friend, `spent_on_you`, `you_spent_on_them`, `balance` (positive = friend owes user), `possible` (sum of `assumed` rows, **excluded** from balance). Rebuild per event idempotently (delete the event's entries, reinsert).
