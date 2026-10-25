@@ -42,7 +42,6 @@ export default function Home() {
           <View style={s.hero}>
             {feed.friends.isSuccess && <View style={s.stats}>
               <View><Text style={s.statLabel}>Your turn to cover</Text><Text style={s.statValue}>{formatCents(totals.owingCents)}</Text></View>
-              <View><Text style={s.statLabel}>Friends’ turn</Text><Text style={s.statValue}>{formatCents(totals.owedCents)}</Text></View>
             </View>}
           </View>
           <View style={s.lip} />
