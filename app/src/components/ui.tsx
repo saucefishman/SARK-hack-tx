@@ -52,8 +52,8 @@ export function Badge({ label, tone }: { label: string; tone: BadgeTone }) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl, gap: space.sm },
-  title: { fontSize: 17, fontWeight: "600", color: colors.text, textAlign: "center" },
-  muted: { fontSize: 14, color: colors.muted, textAlign: "center" },
+  title: { fontFamily: "Inter", fontSize: 17, fontWeight: "600", color: colors.text, textAlign: "center" },
+  muted: { fontFamily: "Inter", fontSize: 14, color: colors.muted, textAlign: "center" },
   button: {
     marginTop: space.sm,
     backgroundColor: colors.primary,
@@ -63,5 +63,5 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, alignSelf: "flex-start" },
-  badgeText: { fontSize: 12, fontWeight: "600" },
+  badgeText: { fontFamily: "Inter", fontSize: 12, fontWeight: "600" },
 });

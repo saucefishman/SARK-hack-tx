@@ -6,8 +6,16 @@
     "version": "0.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "plugins": ["expo-router"],
-    "web": { "bundler": "metro", "output": "single" },
-    "experiments": { "typedRoutes": false }
+    "plugins": [
+      "expo-router",
+      "expo-sharing"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "experiments": {
+      "typedRoutes": false
+    }
   }
 }
