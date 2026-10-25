@@ -14,6 +14,8 @@ export function activityIdeaCopy(source: ActivityIdea['source']) {
   return sourceCopy[source];
 }
 
+const REPEATABLE = /^(dinner|lunch|brunch|breakfast|drinks|coffee|tacos|pizza|happy hour|game night)\b/i;
+
 function activityTitle(value: string) {
   const title = value.replace(/\s+purchase$/i, '').trim();
   return title && !/[$€£]|\b(payment|paid|repayments?|refunds?|transfers?|splits?|owes?|loans?|reimbursements?|settlement)\b/i.test(title) ? title : null;
@@ -30,11 +32,17 @@ export function friendActivityIdeas(entries: FriendEntry[], friendId: string, su
     seen.add(title.toLocaleLowerCase());
     ideas.push({ id: item.id, title, source: item.kind });
   }
+  // Only outings worth repeating (a regular spot, or something you've done more than once); one-offs like a show are skipped.
+  const visits = new Map<string, number>();
+  for (const entry of entries) if (entry.kind === 'covered' && entry.event) {
+    const key = entry.event.description.toLocaleLowerCase();
+    visits.set(key, (visits.get(key) ?? 0) + 1);
+  }
   for (const entry of [...entries].sort((a, b) => (b.event?.date ?? '').localeCompare(a.event?.date ?? ''))) {
     const event = entry.event;
     if (entry.kind !== 'covered' || !event?.attendees.some(person => person.personId === friendId)) continue;
     const title = activityTitle(event.description);
-    if (!title) continue;
+    if (!title || !(REPEATABLE.test(title) || (visits.get(event.description.toLocaleLowerCase()) ?? 0) > 1)) continue;
     const key = title.toLocaleLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);

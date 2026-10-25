@@ -4,7 +4,7 @@
 //  - attendees: the answer sets the event's attendees; txn + human answer is the second source
 //  - alias:     the candidate alias is attached to the chosen person (message senders updated too)
 //  - dismiss:   marks the item dismissed (attendees: not social; payer: guess rejected, event excluded)
-import { USER_ID, type ReviewAnswerBody } from "@sark/shared";
+import { USER_ID, type EventEditBody, type ReviewAnswerBody } from "@sark/shared";
 import type { Db } from "../db/pool";
 import { runTraced } from "../obs/tracing";
 import { attributeEvent } from "./attribution";
@@ -68,6 +68,34 @@ async function applyReviewAnswerImpl(db: Db, reviewId: string, body: ReviewAnswe
   } else if (item?.event_id) {
     for (const f of await reprocessEvent(db, item.event_id)) ids.add(f);
   }
+  ids.delete(USER_ID);
+  return [...ids];
+}
+
+/**
+ * Direct edit of one event (PATCH /events/:id), then the same single-event re-run as a review answer.
+ * Returns affected friend ids, or null if the event is unknown.
+ * TODO: edits live on the event row, so a full pipeline reset (`pnpm demo`, /dev/rerun) rebuilds events without them.
+ */
+export async function editEvent(db: Db, eventId: string, body: EventEditBody): Promise<string[] | null> {
+  const { rows } = await db.query<{ attendee_ids: string[] }>("SELECT attendee_ids FROM event WHERE id = $1", [eventId]);
+  const ev = rows[0];
+  if (!ev) return null;
+  const ids = new Set<string>(ev.attendee_ids);
+  if (body.description !== undefined) await db.query("UPDATE event SET description = $2 WHERE id = $1", [eventId, body.description]);
+  if (body.date !== undefined) await db.query("UPDATE event SET date = $2 WHERE id = $1", [eventId, body.date]);
+  if (body.attendeeIds) {
+    const attendees = [...new Set([USER_ID, ...body.attendeeIds])].sort();
+    attendees.forEach((id) => ids.add(id));
+    await db.query("UPDATE event SET attendee_ids = $2 WHERE id = $1", [eventId, attendees]);
+    // An answered attendees question would override the row on re-run; keep it in step with the edit.
+    await db.query(
+      `UPDATE review_item SET answer = jsonb_build_object('personIds', $2::text[])
+       WHERE event_id = $1 AND kind = 'attendees' AND status = 'answered'`,
+      [eventId, attendees.filter((id) => id !== USER_ID)],
+    );
+  }
+  for (const f of await reprocessEvent(db, eventId)) ids.add(f);
   ids.delete(USER_ID);
   return [...ids];
 }

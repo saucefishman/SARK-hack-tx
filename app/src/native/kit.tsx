@@ -122,6 +122,8 @@ export function Icon({
     string,
     React.ComponentProps<typeof MaterialIcons>["name"]
   > = {
+    home: "home",
+    edit: "edit",
     user: "person-outline",
     people: "people-outline",
     grid: "account-balance-wallet",

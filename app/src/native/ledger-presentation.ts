@@ -12,6 +12,19 @@ export function summarizeFriends(friends: FriendSummary[]) {
   }), { owedCents: 0, owingCents: 0, sharedBalanceCents: 0, spentCents: 0, receivedCents: 0, possibleCents: 0 });
 }
 
+/**
+ * Spend totals with repayments taken out, so "you covered" minus "they covered" always equals the balance.
+ * The summary only carries the net repayment (covered difference minus balance), so it comes off whichever side received it.
+ */
+export function netSpend(friend: Pick<FriendSummary, 'youSpentOnThemCents' | 'spentOnYouCents' | 'balanceCents'>) {
+  const repaid = friend.youSpentOnThemCents - friend.spentOnYouCents - friend.balanceCents;
+  return {
+    youCoveredCents: friend.youSpentOnThemCents - Math.max(0, repaid),
+    theyCoveredCents: friend.spentOnYouCents - Math.max(0, -repaid),
+    repaidCents: repaid,
+  };
+}
+
 export function filterFriends(friends: FriendSummary[], filter: number, search: string) {
   const query = search.trim().toLowerCase();
   return friends.filter(friend => friend.name.toLowerCase().includes(query) && (

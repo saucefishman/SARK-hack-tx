@@ -8,6 +8,12 @@ import {
   Selector,
   palette,
 } from "./kit";
+const tabs: Record<string, { label: string; icon: string }> = {
+  index: { label: "Home", icon: "home" },
+  events: { label: "Events", icon: "events" },
+  people: { label: "Friends", icon: "people" },
+};
+
 export default function FinanceTabs() {
   const insets = useSafeAreaInsets();
   const [target, setTarget] = useState<NativeBlurTarget | undefined>(undefined);
@@ -34,8 +40,8 @@ export default function FinanceTabs() {
               index={state.index}
               options={state.routes.map((route) => ({
                 key: route.key,
-                label: route.name === "events" ? "Events" : "Friends",
-                icon: route.name === "events" ? "events" : "people",
+                label: tabs[route.name]?.label ?? route.name,
+                icon: tabs[route.name]?.icon ?? "events",
               }))}
               onSelect={(index) => {
                 const route = state.routes[index];
@@ -50,8 +56,9 @@ export default function FinanceTabs() {
           </View>
         )}
       >
-        <Tabs.Screen name="index" options={{ title: "Friends" }} />
+        <Tabs.Screen name="index" options={{ title: "Home" }} />
         <Tabs.Screen name="events" options={{ title: "Events" }} />
+        <Tabs.Screen name="people" options={{ title: "Friends" }} />
       </Tabs>
     </BlurTargetContext.Provider>
   );

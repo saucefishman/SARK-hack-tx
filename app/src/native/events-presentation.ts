@@ -1,7 +1,7 @@
 import { USER_ID, type FriendDetailResponse, type PaybackItem, type PaybackResponse, type PersonRef } from '@sark/shared';
 
 export type SharedExperience = { id: string; title: string; date: string; friends: PersonRef[] };
-export type NewExperience = { item: PaybackItem; friend: PersonRef };
+export type NewExperience = { item: PaybackItem; friend: PersonRef; debtCents: number; toleranceCents: number };
 
 export function localToday() {
   const date = new Date();
@@ -34,7 +34,22 @@ export function newExperience(responses: PaybackResponse[], history: SharedExper
   const previous = new Set(history.map(event => titleKey(event.title)));
   const candidates = responses.flatMap(response => response.suggestions.flatMap(plan => plan.items)
     .filter(item => item.kind === 'discovered' && (!item.date || item.date >= asOf) && !previous.has(titleKey(displayTitle(item.title))))
-    .map(item => ({ item, friend: response.friend })));
+    .map(item => ({ item, friend: response.friend, debtCents: response.debtCents, toleranceCents: response.toleranceCents })));
   candidates.sort((a, b) => (a.item.date ?? '9999').localeCompare(b.item.date ?? '9999') || a.item.id.localeCompare(b.item.id) || a.friend.personId.localeCompare(b.friend.personId));
   return candidates[0] ?? null;
+}
+
+/** Upcoming ways to return the favor across every friend the user owes: dated, soonest first, one row per item. */
+export function upcomingTurns(responses: PaybackResponse[], asOf: string, limit = 3): NewExperience[] {
+  const seen = new Set<string>();
+  const out: NewExperience[] = [];
+  for (const response of responses) {
+    for (const item of response.suggestions.flatMap(plan => plan.items)) {
+      const key = `${response.friend.personId}:${item.id}`;
+      if (!item.date || item.date < asOf || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ item: { ...item, title: displayTitle(item.title) }, friend: response.friend, debtCents: response.debtCents, toleranceCents: response.toleranceCents });
+    }
+  }
+  return out.sort((a, b) => a.item.date!.localeCompare(b.item.date!) || a.item.id.localeCompare(b.item.id)).slice(0, limit);
 }

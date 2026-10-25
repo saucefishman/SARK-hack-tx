@@ -62,7 +62,7 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/pipeline/attribution.ts` — `attributeEvent`, `runAttribution`, `detectRepayments`, `dbBaseCostDeps`, `payerReviewId` — payer basis rules, estimateBaseCost with DB history, repayments (message + transfer, deduped)
 - `server/src/pipeline/ledger.ts` — `rebuildEventLedger(db, id)`, `runLedger(db)` — splitEvent → `ledger_entry`, idempotent per event
 - `server/src/pipeline/run.ts` — `runPipeline(db, {from?, llmMode?, sources?})`, `Stage`, `STAGES`, `resetPipelineTables` — orchestrator
-- `server/src/pipeline/review.ts` — `applyReviewAnswer(db, id, body)`, `reprocessEvent(db, eventId)` — persist answer, re-run only the affected event
+- `server/src/pipeline/review.ts` — `applyReviewAnswer(db, id, body)`, `editEvent(db, eventId, body)`, `reprocessEvent(db, eventId)` — persist answer / direct event edit (PATCH /events/:id), re-run only the affected event
 - `server/src/sources/index.ts` — `sourcesFromDir(generatedDir)` — file sources over a seed `generated/` dir
 - `server/src/seed/write.ts` — `writeSeed(seedDir?)`, `loadScenario()` — shared by seed/demo/eval
 - `server/src/cli/{run-pipeline,eval,demo,llm-smoke}.ts` — `pnpm --filter server pipeline|eval|demo` and live Muse smoke test (structured output + web search)
@@ -102,9 +102,13 @@ Format: `path` — `Name` — one-line purpose
 - `server/src/api/main.ts` — server entry (`pnpm --filter server dev`)
 
 ## App (Expo)
-- `app/src/api/client.ts` — `getFriends`, `getFriend`, `getReview`, `answerReview`, `API_URL`, `USE_MOCKS` — the only app data access; API base = `EXPO_PUBLIC_API_URL`, else the Expo dev host on :3000 (works on phones); `EXPO_PUBLIC_USE_MOCKS=1` → mocks
-- `app/src/api/hooks.ts` — `useFriends`, `useFriend`, `useReview`, `useAnswerReview` — TanStack Query hooks
+- `app/src/api/client.ts` — `getFriends`, `getFriend`, `getReview`, `answerReview`, `getPayback`, `dismissPayback`, `editEvent`, `API_URL`, `USE_MOCKS` — the only app data access; API base = `EXPO_PUBLIC_API_URL`, else the Expo dev host on :3000 (works on phones); `EXPO_PUBLIC_USE_MOCKS=1` → mocks
+- `app/src/api/hooks.ts` — `useFriends`, `useFriend`, `useReview`, `useAnswerReview`, `usePayback`, `useDismissPayback`, `useEditEvent` — TanStack Query hooks
+- `app/src/api/event-hooks.ts` — `useEventFeed` — every friend's detail + payback: `events` (shared history), `suggestion`, `turns` (upcoming your-turn plans)
+- `app/src/native/events-presentation.ts` — `sharedExperiences`, `newExperience`, `upcomingTurns`, `localToday`
+- `app/src/native/ledger-presentation.ts` — `summarizeFriends`, `netSpend` (spend totals net of repayments), `filterFriends`, `reviewAnswer`, `ledgerCsv`
 - `app/src/mocks/index.ts` — `mockApi` — in-memory mock backend
 - `app/src/format.ts` — `formatCents`, `balanceLabel`, `formatDate`, `formatDateTime` — the one money formatter
 - `app/src/theme.ts` — `colors`, `space`, `radius`
 - `app/src/components/ui.tsx` — `Loading`, `ErrorState`, `EmptyState`, `Badge`
+- `app/src/native/payback-presentation.ts` — `priceRange`, `remainingBalance`, `sourceUrl`; "your turn" copy: `memoryHook`, `shareFootnote`, `yourTurnLabel`, `sendInstead`, `evenTogether` — friendship-first framing for payback suggestion cards
