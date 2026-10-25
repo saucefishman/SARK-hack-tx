@@ -1,4 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -7,10 +8,12 @@ import {
   Text,
   View,
 } from "react-native";
-import type { FriendEntry } from "@sark/shared";
+import { USER_ID, type FriendEntry } from "@sark/shared";
 import { useFriend } from "../api/hooks";
 import { EmptyState, ErrorState, Loading } from "../components/ui";
-import { formatCents, formatDate } from "../format";
+import { formatCents } from "../format";
+import { EventRow, EventSheet } from "./EventCard";
+import type { SharedExperience } from "./events-presentation";
 import { FriendSuggestion } from "./FriendSuggestion";
 import { netSpend } from "./ledger-presentation";
 import { Avatar, WarmSurface, Icon, Money, palette } from "./kit";
@@ -24,15 +27,13 @@ function EntryRow({ e, friendName }: { e: FriendEntry; friendName: string }) {
     ? fromFriend ? `${friendName} paid you back` : `You paid ${friendName} back`
     : fromFriend ? `${friendName} covered you` : `You covered ${friendName}`;
   return (
-    <View style={styles.entry}>
-      <View style={styles.rowBetween}>
+    <View style={styles.rowBetween}>
         <Text style={[styles.flow, e.basis === "assumed" && { color: colors.muted }]}>
           {text}{e.basis === "assumed" ? " (maybe)" : ""}
         </Text>
         <Text style={[styles.amount, e.basis === "assumed" && { color: colors.muted }]}>
           {e.basis === "estimated" ? "≈ " : ""}{formatCents(e.amountCents)}
         </Text>
-      </View>
     </View>
   );
 }
@@ -42,6 +43,7 @@ export default function FriendDetail() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useFriend(id);
+  const [selected, setSelected] = useState<SharedExperience | null>(null);
   if (q.isLoading) return <Loading />;
   if (q.isError)
     return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
@@ -49,7 +51,7 @@ export default function FriendDetail() {
   const { friend, entries } = q.data;
   const net = netSpend(friend);
 
-  // Group by event (null event = "Other").
+  // Group by event (null event = repayments, shown as "Paid back").
   const groups = new Map<
     string,
     { key: string; event: FriendEntry["event"]; rows: FriendEntry[] }
@@ -218,28 +220,24 @@ export default function FriendDetail() {
 
       {entries.length === 0 ? <EmptyState title="No entries yet" /> : null}
 
-      {[...groups.values()].map((g) => (
-        <View key={g.key} style={styles.group}>
-          <Text style={styles.groupTitle}>
-            {g.event?.description ?? "Paid back"}
-          </Text>
-          {g.event ? (
-            <Text style={styles.groupMeta}>
-              {formatDate(g.event.date)}
-              {g.event.attendees.length
-                ? ` · ${g.event.attendees.map((a) => a.name).join(", ")}`
-                : ""}
-            </Text>
-          ) : null}
-          {g.rows.map((e) => (
-            <EntryRow key={e.id} e={e} friendName={friend.name} />
-          ))}
-        </View>
-      ))}
+      <View style={{ paddingHorizontal: 18 }}>
+        {[...groups.values()].map((g) => {
+          const lines = g.rows.map((e) => <EntryRow key={e.id} e={e} friendName={friend.name} />);
+          if (!g.event) return <View key={g.key} style={styles.group}><Text style={styles.groupTitle}>Paid back</Text>{lines}</View>;
+          const event: SharedExperience = {
+            id: g.event.id,
+            title: g.event.description,
+            date: g.event.date,
+            friends: g.event.attendees.filter((a) => a.personId !== USER_ID),
+          };
+          return <EventRow key={g.key} event={event} onPress={() => setSelected(event)} footer={lines} />;
+        })}
+      </View>
 
       <Text style={styles.footer}>
         ≈ marks an estimated share.
       </Text>
+      <EventSheet event={selected} visible={!!selected} onClose={() => setSelected(null)} />
     </ScrollView>
   );
 }
@@ -262,7 +260,8 @@ const styles = StyleSheet.create({
   },
   sumSecondary: { fontFamily: "Inter", fontSize: 15, color: colors.muted },
   group: {
-    marginHorizontal: 18,
+    marginBottom: 10,
+    gap: 10,
     backgroundColor: "#fff",
     borderRadius: 24,
     padding: 18,
@@ -274,20 +273,6 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins",
     letterSpacing: -0.3,
     color: palette.ink,
-  },
-  groupMeta: {
-    fontFamily: "Inter",
-    fontSize: 10,
-    color: colors.muted,
-    marginTop: 2,
-    marginBottom: space.sm,
-  },
-  entry: {
-    paddingTop: space.md,
-    marginTop: space.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: space.sm,
   },
   rowBetween: {
     flexDirection: "row",
@@ -301,7 +286,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   amount: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "InterSemiBold",
     letterSpacing: -0.6,
     color: colors.text,

@@ -105,6 +105,7 @@ Format: `path` — `Name` — one-line purpose
 - `app/src/api/client.ts` — `getFriends`, `getFriend`, `getReview`, `answerReview`, `getPayback`, `dismissPayback`, `editEvent`, `API_URL`, `USE_MOCKS` — the only app data access; API base = `EXPO_PUBLIC_API_URL`, else the Expo dev host on :3000 (works on phones); `EXPO_PUBLIC_USE_MOCKS=1` → mocks
 - `app/src/api/hooks.ts` — `useFriends`, `useFriend`, `useReview`, `useAnswerReview`, `usePayback`, `useDismissPayback`, `useEditEvent` — TanStack Query hooks
 - `app/src/api/event-hooks.ts` — `useEventFeed` — every friend's detail + payback: `events` (shared history), `suggestion`, `turns` (upcoming your-turn plans)
+- `app/src/native/EventCard.tsx` — `EventRow` (date tile, title, attendees, optional footer lines), `EventSheet` (details + edit form → PATCH /events/:id), `monthLabel` — shared by Events tab and friend page
 - `app/src/native/events-presentation.ts` — `sharedExperiences`, `newExperience`, `upcomingTurns`, `localToday`
 - `app/src/native/ledger-presentation.ts` — `summarizeFriends`, `netSpend` (spend totals net of repayments), `filterFriends`, `reviewAnswer`, `ledgerCsv`
 - `app/src/mocks/index.ts` — `mockApi` — in-memory mock backend
