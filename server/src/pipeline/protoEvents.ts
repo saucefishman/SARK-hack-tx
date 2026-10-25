@@ -5,7 +5,7 @@
 // Idempotent: deterministic ids (stableId), upsert, stale rows removed.
 import { USER_ID } from "@sark/shared";
 import type { Db } from "../db/pool";
-import { getConfig } from "../config";
+import { getAsOf, getConfig } from "../config";
 import { stableId } from "../domain/ids";
 import { generateStructured, messageDay, txnSocial, type GenerateOptions, type MessageDayInput } from "../llm";
 import { mapLimit } from "../util/mapLimit";
@@ -33,8 +33,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function buildProtoEvents(
   db: Db,
-  opts: { llmMode?: GenerateOptions["mode"]; llm?: GenerateOptions } = {},
+  opts: { llmMode?: GenerateOptions["mode"]; llm?: GenerateOptions; /** Demo clock; calendar entries after it are plans, not events. */ asOf?: string } = {},
 ): Promise<ProtoCounts> {
+  const asOf = opts.asOf ?? getAsOf();
   const gen: GenerateOptions = { ...opts.llm, ...(opts.llmMode ? { mode: opts.llmMode } : {}) };
   const counts: ProtoCounts = { message: 0, calendar: 0, txn: 0, llmCalls: 0, llmSkipped: 0 };
   const protos: ProtoRow[] = [];
@@ -124,7 +125,7 @@ export async function buildProtoEvents(
             to_char(start_at AT TIME ZONE 'UTC', 'HH24:MI') AS t, attendee_ids
      FROM calendar_event ORDER BY start_at, id`,
   );
-  for (const c of cals) {
+  for (const c of cals.filter((x) => x.d <= asOf)) { // later entries are payback plans (pipeline/payback/plans.ts)
     protos.push({
       id: stableId("pe", "calendar", c.id),
       source: "calendar",

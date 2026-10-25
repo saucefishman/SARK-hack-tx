@@ -24,8 +24,8 @@ Consequence for the design: friend-paid events are the *primary* signal, not an 
 
 Everything below is the design; this is what ships first. Build in this order and stop when time runs out.
 
-1. **Must (demo works):** seeded data in Postgres → events → Gemini attendee + payer extraction → directional ledger → friend list UI showing **spent on you** first, **you spent on them** second, then balance, with receipts. Both directions must be present in the seed data.
-2. **Should:** assumed payer + "Possible" display + confirm flow (6d); Gemini repayment detection in messages; `unaccounted` bucket; confidence badge.
+1. **Must (demo works):** seeded data in Postgres → events → Muse Spark attendee + payer extraction → directional ledger → friend list UI showing **spent on you** first, **you spent on them** second, then balance, with receipts. Both directions must be present in the seed data.
+2. **Should:** assumed payer + "Possible" display + confirm flow (6d); Muse Spark repayment detection in messages; `unaccounted` bucket; confidence badge.
 3. **Could:** calendar as a third source; review queue UI; eval script.
 4. **Won't (MVP):** live API sync, per-day merge across all three sources (for MVP, join each transaction to the calendar/messages of the same day), friend-paid events without a stated amount.
 
@@ -33,10 +33,11 @@ Everything below is the design; this is what ships first. Build in this order an
 
 | Term | Meaning |
 |---|---|
-| Muse | Message source. MCP server that exposes the user's messages and semantic search over them. Web search is a separate tool, used only as a fallback. |
+| Muse MCP | Long-term message source: an MCP server that exposes the user's messages and semantic search over them (MVP reads an Instagram export instead, §12). **Not the model**; the model is Muse Spark below. |
 | Nessie | Capital One's sandbox banking API. Data is **synthetic**, so we seed it. |
 | Tiger Data | Hosted Postgres (Timescale). Our only database. pgvector lives here. |
-| Gemini | The one LLM. Always called with a structured-output schema. |
+| Muse Spark | The one generation LLM, served by **Meta's Model API** (`muse-spark-1.3-contributor`, env `LLM_MODEL`). Always called with a structured-output schema (Chat Completions, `response_format: json_schema`) or, for web price lookups, the Responses API `web_search` tool. All LLM calls in this design mean Muse Spark. |
+| Gemini (embeddings only) | Meta's Model API has no embedding model, so message embeddings (`EMBED_MODE=live`) stay on Gemini `gemini-embedding-001`. The default `EMBED_MODE=local` is an offline hashing embedder, so replay, eval and tests never contact Google. This is the only remaining Gemini use. |
 | Proto event | A candidate event from one source (one calendar entry, one message cluster, one transaction cluster). Incomplete is fine; a date is required. |
 | Event | One or more proto events merged. The unit that gets a debt calculation. |
 | Ledger entry | One signed row: "for event E, person P owes/is owed $X, because Y". |
@@ -46,19 +47,19 @@ Everything below is the design; this is what ships first. Build in this order an
 The council agreed on the first four points independently.
 
 1. **Transaction-anchored debt, not "expected vs actual".** The original delta (expected cost from RAG/web, minus actual spend) subtracts one guess from another and presents it as fact. $60 on a $20 dinner could be generosity or a nice restaurant. Instead: debt comes from **who paid, how much, and who was there** (`amount / headcount`). The expected-cost baseline is demoted to a fallback (section 6, step 5).
-2. **Merge steps 1 and 2.** Per-source proto events are still produced, but dedupe is a single Gemini pass per day, keyed on date. No cross-day fuzzy matching.
+2. **Merge steps 1 and 2.** Per-source proto events are still produced, but dedupe is a single Muse Spark pass per day, keyed on date. No cross-day fuzzy matching.
 3. **Binary relevance rule, not a score matrix.** An event counts toward debt if it is social (≥2 people) and paid, and is backed by ≥2 sources. Everything else is stored but excluded.
-4. **Batch, not live.** The pipeline runs offline, writes to Postgres, and the UI reads precomputed results. Gemini rate limits and latency never touch the demo.
+4. **Batch, not live.** The pipeline runs offline, writes to Postgres, and the UI reads precomputed results. Meta API rate limits and latency never touch the demo.
 5. **Seeded demo data is the demo.** Nessie is synthetic and won't line up with real messages. We build one curated dataset (3–5 friends, ~20 events) where the three sources agree, and design it to include a few messy cases on purpose.
 6. **Keep:** the Event object, the "unaccounted debt" bucket (shown openly), and the "what is this transaction?" prompt (reframed as a *confirm* feature, not an error path).
-7. **Defer:** pgvector for retrieval (Postgres full-text + date window is enough at demo scale; switch on if Muse search proves unusable), SerpAPI/web-search baseline, ±30 min transaction windows (use same-day plus Gemini's judgment).
+7. **Defer:** pgvector for retrieval (Postgres full-text + date window is enough at demo scale; switch on if Muse MCP search proves unusable), SerpAPI/web-search baseline, ±30 min transaction windows (use same-day plus Muse Spark's judgment).
 
 ## 4. Pipeline
 
 ```
  Calendar API ─┐
  Muse messages ─┼─▶ 1. INGEST ─▶ 2. PROTO EVENTS ─▶ 3. MERGE (per day) ─▶ 4. RELEVANCE
- Nessie txns  ─┘     raw rows       per source          Gemini               binary rule
+ Nessie txns  ─┘     raw rows       per source          Muse Spark           binary rule
                                                                                 │
                       7. UI ◀─ 6. LEDGER ◀─ 5. DEBT ATTRIBUTION ◀───────────────┘
                       net per      signed,        payer + amount + attendees
@@ -82,7 +83,7 @@ The council agreed on the first four points independently.
 | `event_source` | event_id, proto_event_id | Provenance. |
 | `ledger_entry` | id, event_id, payer_id, beneficiary_id, amount (≥0), kind (covered / repayment / unaccounted), basis (confirmed / assumed / estimated), evidence_message_id? | Directional: "payer spent `amount` on beneficiary". Source of truth. Per friend F: `spent_on_you` = covered rows F→user; `you_spent_on_them` = covered rows user→F; `balance = you_spent_on_them − spent_on_you`, adjusted by repayment rows. Only `confirmed` and `estimated` rows count toward balance; `assumed` rows show as "possible". |
 | `review_item` | id, kind (alias / attendees / payer), txn_id / event_id, question, option_ids[], answer?, status | The "what is this?" queue. |
-| `llm_cache` (implementation only) | key, model, prompt_id, response, created_at | Gemini record/replay cache. Key = sha256(prompt id + version + model + canonical input). |
+| `llm_cache` (implementation only) | key, model, prompt_id, response, created_at | LLM record/replay cache (model name is part of the key, so answers from one model are never served for another). Key = sha256(prompt id + version + model + canonical input). |
 
 Implementation notes (Phase 0, authoritative DDL in `server/migrations/001_init.sql`, types in `packages/shared`):
 - Money columns are integer cents: `txn.amount_cents`, `event.total_cents`, `event_payer.amount_cents`, `ledger_entry.amount_cents`.
@@ -97,15 +98,15 @@ Implementation notes (Phase 0, authoritative DDL in `server/migrations/001_init.
 
 1. **Ingest.** Pull Calendar, Muse messages, Nessie transactions into raw tables. Resolve every name/phone/email/merchant string to a `person_id` via `person_alias`; unknown strings create a candidate alias for review.
 2. **Proto events.**
-   - *Messages:* group into conversations, Gemini reads 1-day windows, emits `{date, people, description, mentions_payment?}`. Later messages in the same thread attach to the same proto event.
+   - *Messages:* group into conversations, Muse Spark reads 1-day windows, emits `{date, people, description, mentions_payment?}`. Later messages in the same thread attach to the same proto event.
    - *Calendar:* title + description + attendees map directly.
-   - *Transactions:* merchant, amount, and nearby transactions (same merchant/day) suggest a group outing. Gemini gets merchant + amount + time and flags `looks_social`.
-3. **Merge.** Per day, one Gemini call receives that day's proto events and returns merged groups. Merged `Event` carries description, people, date, time, payer, total, and `context_message_ids`. Output is schema-constrained and validated (every proto event assigned to exactly one event).
+   - *Transactions:* merchant, amount, and nearby transactions (same merchant/day) suggest a group outing. Muse Spark gets merchant + amount + time and flags `looks_social`.
+3. **Merge.** Per day, one Muse Spark call receives that day's proto events and returns merged groups. Merged `Event` carries description, people, date, time, payer, total, and `context_message_ids`. Output is schema-constrained and validated (every proto event assigned to exactly one event).
 4. **Relevance.** `is_relevant = attendees ≥ 2 AND paid AND source_count ≥ 2`. Irrelevant events are stored, flagged, and excluded from the ledger. A transaction-only event with no similar past transaction goes to the **review queue** ("We see $84 at Uchi on 3/12. Who was there?"); the answer is written back and re-runs relevance.
 5. **Debt attribution.**
    - *User paid:* `share = total / headcount`. For each other attendee, ledger entry `+share` (kind `covered`).
-   - *Friend paid:* needs an amount. Take it from messages ("I got dinner, $120") if present; otherwise run `estimate_base_cost` (message → history search → Muse cold-start web search, see 6c) and mark confidence low. Entry `-share` for the user.
-   - *Repayments:* Gemini scans later messages in the thread for payments or settlements ("venmo'd you $20"). Each becomes a `repayment` entry that offsets the balance. Payments made outside Nessie (cash, Venmo) only show up this way.
+   - *Friend paid:* needs an amount. Take it from messages ("I got dinner, $120") if present; otherwise run `estimate_base_cost` (message → history search → RAG → web-search cold start, see 6c) and mark confidence low. Entry `-share` for the user.
+   - *Repayments:* Muse Spark scans later messages in the thread for payments or settlements ("venmo'd you $20"). Each becomes a `repayment` entry that offsets the balance. Payments made outside Nessie (cash, Venmo) only show up this way.
    - *Remainder:* anything that cannot be explained lands in `unaccounted`. Never silently dropped.
 6. **Ledger.** Recompute balances from `ledger_entry`. Idempotent: delete-and-rebuild entries for an event on rerun.
 7. **UI.** Friend list with net balance, drill-down to events and the messages that justify each number, a confidence badge per entry, and the review queue.
@@ -114,9 +115,9 @@ Implementation notes (Phase 0, authoritative DDL in `server/migrations/001_init.
 
 Debt is `(payer, beneficiaries, amount)`. Nessie gives payer and amount; the missing piece is who else was there.
 
-1. Gemini marks the transaction `looks_social` (merchant, amount, time).
+1. Muse Spark marks the transaction `looks_social` (merchant, amount, time).
 2. Pull same-day calendar events and messages as context.
-3. Gemini returns `{attendees, split: "equal", confidence, evidence_message_ids}`.
+3. Muse Spark returns `{attendees, split: "equal", confidence, evidence_message_ids}`.
 4. `share = amount / headcount` (user included); each other attendee gets a ledger entry (payer = user, beneficiary = attendee, `share`).
 5. Later "sent you $X" messages become `repayment` entries. Low confidence or unknown attendees go to the review queue.
 
@@ -128,13 +129,13 @@ Weak spots: wrong headcount (mitigated by evidence links + confidence badge), un
 
 Evidence here is testimony, not a Nessie row, so the anchor is a message or calendar event.
 
-- **Explicit trigger (strong):** message like "I got this" / "thanks for covering me". Gemini extracts `{payer, amount?, attendees, evidence_message_id}`.
+- **Explicit trigger (strong):** message like "I got this" / "thanks for covering me". Muse Spark extracts `{payer, amount?, attendees, evidence_message_id}`.
 - **Implicit trigger (weak):** social event with ≥2 attendees and no user transaction near that time. Payer unknown.
 
 Amount, in order (this is `estimate_base_cost`, the expected-cost step):
 1. Stated in a message.
-2. **History search:** Muse looks for past similar events (same merchant/event type) and takes the median, using the user's own past spend. Labeled `estimated`.
-3. **Cold-start search:** if history finds nothing, Muse runs a *separate* web search (SerpAPI / Muse web-search tool) for a typical per-person cost of this merchant or event type, and Gemini turns the results into one number with a source link. Labeled `estimated`, confidence low. This is a distinct step so a missing history never blocks an estimate. Cache by merchant + event type.
+2. **History search:** the user's own past spend at the same merchant/event type, median in code (§14 adds a RAG step over past messages). Labeled `estimated`.
+3. **Cold-start search:** if history finds nothing, a *separate* web search (Meta Responses API `web_search` tool) looks up a typical per-person cost of this merchant or event type, and Muse Spark turns the results into one number with a source link. Labeled `estimated`, confidence low. This is a distinct step so a missing history never blocks an estimate. Cache by merchant + event type.
 4. `null` (event counted, no dollars).
 
 MVP: step 3 is a stub (`TODO(stub): muse-cold-start`); the function returns null at step 3 and seeded data covers steps 1–2.
@@ -156,7 +157,7 @@ An event can have several `event_payer` rows (friend A paid $60, friend B paid $
 **Split rule (equal split):** fair share = `total / headcount`. For each person, `surplus = paid − share`. Positive surplus = creditor, negative = debtor. Debtors owe creditors pro rata to creditor surplus. Each resulting pair becomes a directional `ledger_entry` (payer = creditor, beneficiary = debtor). Single-payer events fall out as the special case.
 
 **User was covered but payer unknown:** we still make an assumption so the product has something to show.
-1. Pick the most likely payer: Gemini names who was in the thread/calendar and said or implied "I got it"; otherwise the attendee most often the payer at past events with this group.
+1. Pick the most likely payer: Muse Spark names who was in the thread/calendar and said or implied "I got it"; otherwise the attendee most often the payer at past events with this group.
 2. Write an `event_payer` row with `basis = assumed` and a `ledger_entry` with `basis = assumed`.
 3. Show it as **Possible** in the UI and open a review item: "Did Sam cover you at Uchi?"
 4. On confirmation (or correction to another friend) the row flips to `confirmed` with the actual payer and starts counting toward the balance. A different answer deletes the assumed rows and writes new ones, so the true payer always replaces the guess.
@@ -175,27 +176,28 @@ Hand-label the seeded dataset: for each event, true attendees, true payer, true 
 - Demo uses seeded/fake or consenting people only.
 - UI language is neutral ("balance", not "cost you").
 - Say plainly in the UI: estimates are heuristic.
+- **Contributor model:** `muse-spark-1.3-contributor` lets Meta train on prompts and completions. Fine for the synthetic seed data; set `LLM_MODEL=muse-spark-1.3` before running on any real messages. Embeddings (`EMBED_MODE=live` only) send message text to Google; the default local embedder sends nothing.
 - LangSmith tracing is off by default. When `LANGSMITH_TRACING=true` and a key is set, traces send full prompt text (including message contents and names), model outputs and retrieval snippets to LangSmith. `LANGSMITH_HIDE_INPUTS=true` / `LANGSMITH_HIDE_OUTPUTS=true` send only structure, timing, token counts and metadata. Use with seeded/demo data only, not real user messages.
 
 ## 9. Risks
 
 | Risk | Mitigation |
 |---|---|
-| Muse can't export or search as assumed | **Hour-1 spike.** If it cannot dump messages, fall back to a message JSON export / seeded messages. |
-| Gemini output varies run to run | Structured output schemas, temperature 0, cache responses by input hash, ship precomputed results. |
+| Muse MCP can't export or search as assumed | **Hour-1 spike.** If it cannot dump messages, fall back to a message JSON export / seeded messages. |
+| LLM output varies run to run (Muse Spark occasionally omits a stated amount or files a per-person price as a total) | JSON-schema output, temperature 0, cache responses by input hash, code guards (a quoted amount must appear in the source text), ship precomputed results. |
 | Wrong merges (lunch vs dinner same day) | Merge prompt sees times; keep proto-event provenance so a merge can be undone. |
 | Identity resolution errors | Alias table + review queue for unknown strings. |
 | Uneven splits, tips, tax, refunds | Out of scope v1; equal-split assumption stated in UI. |
-| Gemini rate limits / cost | Batch job, cache, small seeded dataset. |
+| Meta API rate limits / cost | Batch job, cache, small seeded dataset. |
 
 ## 10. Work split (4 parallel streams)
 
-A. Ingest adapters (Calendar, Muse, Nessie) → raw tables + seed loader.
-B. Gemini extraction + merge → `proto_event`, `event`.
+A. Ingest adapters (Calendar, messages, Nessie) → raw tables + seed loader.
+B. Muse Spark extraction + merge → `proto_event`, `event`.
 C. Relevance, debt attribution, ledger → `ledger_entry`.
 D. UI: friend ledger, drill-down, review queue.
 
-**Hour 1, before anything else:** freeze the `event`, `ledger_entry`, and `person` schemas, record them in `STRUCTURE.md`, and run the Muse spike.
+**Hour 1, before anything else:** freeze the `event`, `ledger_entry`, and `person` schemas, record them in `STRUCTURE.md`, and run the Muse MCP spike.
 
 ## 11. Later (not v1)
 
@@ -240,13 +242,13 @@ Mark each stub `TODO(stub): social` in code and list it in `STRUCTURE.md`.
 - Answering a review item re-runs only that event (relevance → attribution → ledger); repayment detection is not recomputed until the next `--from attribution` run.
 - `messageDay` prompt v2 adds `perPersonAmountDollars` ("$75 each") and `payers[]` (multi-payer bills); code multiplies, the LLM never does arithmetic.
 - Live Nessie (checked 2026-10-24 with a real key; H6 resolved): `/accounts/{id}/purchases` and `/accounts/{id}/transfers` work for list and create. Merchant `category` is a string, not a list. Purchase create rejects `type`. Transfer create accepts only `transaction_date, status, amount, description` (no payee), and the list returns `id` instead of `_id` and answers 404 when empty. `NessieHttpClient` normalizes all of this. Ingest from live Nessie gives the same 15 transactions as the file source. Live txn ids differ from the file's, so replay fixtures only cover `NESSIE_SOURCE=file`.
-- Gemini: `gemini-2.5-flash` is retired for new keys; default model is now `gemini-3.8-flash`.
+- LLM provider (superseded 2026-10-25 by §17): the MVP originally ran on Gemini (`gemini-3.8-flash`); all generation now runs on Meta's Model API.
 - Tiger Data: node-pg treats `sslmode=require` as verify-full and rejects Timescale's private CA; `createDb` applies libpq semantics (`uselibpqcompat=true`: encrypted, CA not verified), same as psql.
 
 ## 14. Retrieval and expected-cost baseline (added 2026-10-25, from §11)
 
-- **pgvector retrieval.** New `embed` stage after ingest stores a 768-dim embedding per message (`message.embedding_vec`, HNSW cosine index; `message.embedding` real[] fallback where pgvector is absent; PGlite loads its vector extension). `EMBED_MODE=local` (default) uses a deterministic offline hashing embedder so replay never touches the network; `EMBED_MODE=live` uses Gemini embeddings (`GEMINI_EMBED_MODEL`, confirm in H3).
-- **Expected-cost chain** for friend-paid events with no stated amount: stated → median of the user's past purchases at the merchant → **RAG**: semantic search over earlier messages, Gemini extracts stated prices (per-person, or total + headcount), code takes the median, same-venue quotes first → **web search**: Gemini grounded with Google Search (free-text call, then structured extraction; the source URL always comes from grounding metadata, never from the model) → null. All results are `estimated`; the web step is low confidence.
+- **pgvector retrieval.** New `embed` stage after ingest stores a 768-dim embedding per message (`message.embedding_vec`, HNSW cosine index; `message.embedding` real[] fallback where pgvector is absent; PGlite loads its vector extension). `EMBED_MODE=local` (default) uses a deterministic offline hashing embedder so replay never touches the network; `EMBED_MODE=live` uses Gemini embeddings (`GEMINI_EMBED_MODEL`, confirm in H3), the one place Gemini remains because Meta's Model API has no embedding model.
+- **Expected-cost chain** for friend-paid events with no stated amount: stated → median of the user's past purchases at the merchant → **RAG**: semantic search over earlier messages, Muse Spark extracts stated prices (per-person, or total + headcount), code takes the median, same-venue quotes first, and keeps a quote only if that exact dollar amount appears in the retrieved message text → **web search**: Muse Spark with the Responses API `web_search` tool (free-text call, then structured extraction; the source URL always comes from the API's `url_citation` annotations and `web_search_call.results`, never from the model's text) → null. All results are `estimated`; the web step is low confidence.
 - RAG evidence: `event_payer.evidence_message_id` points at the price message; the "on me" message stays in the event context.
 - Without a merchant from the user's own transactions, the venue is the event description (also the web cache key).
 - Seed adds two cases: Sam's karaoke (RAG finds "Ego's was like $20 a head") and Alex's kayak rental (web fixture, $25/person, hand-written replay).
@@ -284,12 +286,12 @@ Every option carries a **range** `[low, high]` and a `basis` reusing the `Basis`
 
 **A. Upcoming shared events (planned).** Future events involving the user and the target friend, from:
 - *Calendar:* `calendar_event` with `start > now` and the friend in `attendee_ids` (alias-resolved, §5).
-- *Messages:* a Gemini pass over recent threads that finds plans ("let's do tacos Friday", "I got us concert tickets for the 12th"), resolving relative dates against each message's `sent_at`. Output: `{date, people[], description, venue?, statedCostDollars?, sourceMessageIds[]}`.
+- *Messages:* a Muse Spark pass over recent threads that finds plans ("let's do tacos Friday", "I got us concert tickets for the 12th"), resolving relative dates against each message's `sent_at`. Output: `{date, people[], description, venue?, statedCostDollars?, sourceMessageIds[]}`.
 
 Same-day, same-people calendar and message plans are merged with the existing per-day merge prompt (§4 step 3) so one plan is not counted twice. If the **friend** is the one paying a planned event (a ticket they bought), it is excluded as a payback option, since it increases the debt instead.
 
 **B. Recurring past events (predicted).** From the user's own relevant past events with that friend (`event.is_relevant`, ≥2 attendees):
-1. Normalize each past event to an **activity key**: merchant if known, else a Gemini-normalized label (e.g. `"thai lunch"`, `"climbing gym"`), cached.
+1. Normalize each past event to an **activity key**: merchant if known, else a Muse Spark-normalized label (e.g. `"thai lunch"`, `"climbing gym"`), cached.
 2. Group by `(friend, activity key)`. Require ≥3 occurrences.
 3. Compute cadence in code: median gap in days, weekday mode, gap dispersion. `regularity = 1 − (MAD_gap / median_gap)`, clamped to [0,1].
 4. Predict `next_date = last_date + median_gap` (snapped to the weekday mode). Drop predictions that are already in the past or already covered by a planned event from A at the same venue within ±3 days.
@@ -298,14 +300,14 @@ Same-day, same-people calendar and message plans are merged with the existing pe
 This part is deterministic code over `event` rows. The LLM only normalizes labels.
 
 **C. New recommendations (discovered).** Derive what this pair likes, then price real options with **SerpAPI**:
-1. *Interests:* Gemini over messages retrieved by pgvector (§14) for the pair returns `{interests: [{label, category, evidence_message_ids[]}]}` (e.g. "mini golf", "ramen", "live comedy", "Radiohead"). Plus categories from the recurring patterns in B.
+1. *Interests:* Muse Spark over messages retrieved by pgvector (§14) for the pair returns `{interests: [{label, category, evidence_message_ids[]}]}` (e.g. "mini golf", "ramen", "live comedy", "Radiohead"). Plus categories from the recurring patterns in B.
 2. *Search:* per interest, one SerpAPI query by category:
    - events/concerts/shows → `google_events` (date, venue, ticket info)
    - restaurants/bars/activities → `google_maps` / `google_local` (price level, rating, price range text)
-3. *Price:* Gemini turns the SerpAPI result JSON into `{perPersonLowCents, perPersonHighCents, venue, url, date?}` with structured output. The source URL always comes from the SerpAPI response, never from the model (same rule as §14). Price level only ("$$") maps to a fixed, documented band table in code, flagged low confidence.
+3. *Price:* Muse Spark turns the SerpAPI result JSON into `{perPersonLowCents, perPersonHighCents, venue, url, date?}` with structured output. The source URL always comes from the SerpAPI response, never from the model (same rule as §14). Price level only ("$$") maps to a fixed, documented band table in code, flagged low confidence.
 4. Results are cached by `(engine, normalized query, location, day)` with a TTL, and counted against a per-run call budget (`SERPAPI_MAX_CALLS`).
 
-This replaces the Gemini-grounded call as the source for **new-idea pricing** only. §14's grounded web step stays as the cold-start fallback inside `estimateBaseCost`; the two share the cached price-extraction schema so there is one place that turns "web result" into cents.
+This replaces the Muse `web_search` call as the source for **new-idea pricing** only. §14's `web_search` step stays as the cold-start fallback inside `estimateBaseCost`; the two share the cached price-extraction schema so there is one place that turns "web result" into cents.
 
 ### 15.4 Combination solver
 
@@ -347,7 +349,7 @@ UI: the Friends card keeps the debt as headline (§1); a "Ways to pay it back" s
 
 ### 15.7 Privacy, safety, cost
 
-- SerpAPI receives only a venue/category/city query. No message text, names or amounts leave the system for it. Gemini sees messages exactly as it does elsewhere (§8).
+- SerpAPI receives only a venue/category/city query. No message text, names or amounts leave the system for it. Muse Spark sees messages exactly as it does elsewhere (§8, including the contributor-model note).
 - Interest extraction stays within the pair's own threads; it never surfaces a friend's private interests the user could not already see in the user's own messages.
 - Needs a `HOME_CITY` setting for location queries.
 - SerpAPI is paid per search: batch only, cache, per-run budget, and replay mode returns fixtures with no network (same `LLM_MODE=replay` discipline).
@@ -377,9 +379,9 @@ UI: the Friends card keeps the debt as headline (§1); a "Ways to pay it back" s
      │   │                                                                                  │
      │   │  [P0 debts]  friendTotals() → friends where balance < 0   ◀── ledger_entry       │
      │   │       │                                                                          │
-     │   │       ├─▶ [P1 plans]     calendar(start>now) + Gemini plan-finder ─▶ future_event│
+     │   │       ├─▶ [P1 plans]     calendar(start>now) + Muse plan-finder ─▶ future_event│
      │   │       ├─▶ [P2 patterns]  past relevant events → activity keys ─▶ recurring_pattern│
-     │   │       └─▶ [P3 discover]  pgvector msgs → Gemini interests ─▶ SerpAPI ─▶ price_quote
+     │   │       └─▶ [P3 discover]  pgvector msgs → Muse interests ─▶ SerpAPI ─▶ price_quote
      │   │                                   (google_events / google_maps)                  │
      │   │                                                                                  │
      │   │  [P4 price]   estimateBaseCost (stated → history → RAG → web) ─▶ friend_share ranges
@@ -400,11 +402,11 @@ The payback stages are a second leg of the same batch run (`--from payback` runs
 | Component | Responsibility | Type | Notes |
 |---|---|---|---|
 | `pipeline/payback/debts.ts` | Select friends the user owes, with `D` | code | Uses `domain/balance.ts`; excludes `assumed` |
-| `pipeline/payback/plans.ts` | Upcoming shared events from calendar and messages | code + Gemini (`planFinder` prompt) | Writes `future_event`; dedupes with the merge prompt |
-| `pipeline/payback/patterns.ts` + `domain/recurrence.ts` | Activity keys, cadence, next-date prediction | code (+ Gemini `activityLabel`, cached) | `recurrence.ts` is pure and table-tested |
-| `pipeline/payback/interests.ts` | Pair interests from retrieved messages | Gemini (`interests` prompt) via `searchMessages` | |
+| `pipeline/payback/plans.ts` | Upcoming shared events from calendar and messages | code + Muse Spark (`planFinder` prompt) | Writes `future_event`; dedupes with the merge prompt |
+| `pipeline/payback/patterns.ts` + `domain/recurrence.ts` | Activity keys, cadence, next-date prediction | code (+ Muse Spark `activityLabel`, cached) | `recurrence.ts` is pure and table-tested |
+| `pipeline/payback/interests.ts` | Pair interests from retrieved messages | Muse Spark (`interests` prompt) via `searchMessages` | |
 | `sources/serpapi.ts` | `SerpApiClient`: `searchEvents`, `searchPlaces`; file/replay implementation with the same interface | adapter | One file for all SerpAPI paths and params; human task for key |
-| `pipeline/payback/discover.ts` | Interests → queries → quotes | code + Gemini (`serpPrice` prompt) | Cache + budget; URL from SerpAPI response only |
+| `pipeline/payback/discover.ts` | Interests → queries → quotes | code + Muse Spark (`serpPrice` prompt) | Cache + budget; URL from SerpAPI response only |
 | `pipeline/payback/candidates.ts` | Unify A/B/C into `payback_candidate` with friend-share ranges | code | Calls `estimateBaseCost` and `splitEvent` |
 | `domain/payback.ts` | Bundle search, scoring, tolerance, fallbacks | **pure** | Heavily unit-tested; the only place that combines options |
 | `api/` routes + `db/queries.ts` readers | Serve suggestions | code | New DTOs in `packages/shared` |
@@ -423,7 +425,7 @@ User answers a review item (balance changes) ──▶ existing re-run (§13) �
                        └─ the solver (pure, fast) re-runs for that friend on next read; no external calls
 ```
 
-The read path never calls Gemini or SerpAPI. Only the solver (pure) may re-run on demand, because a balance change moves `D` but not the candidate prices.
+The read path never calls Meta's API or SerpAPI. Only the solver (pure) may re-run on demand, because a balance change moves `D` but not the candidate prices.
 
 ### 16.4 Key sequences
 
@@ -440,6 +442,8 @@ The read path never calls Gemini or SerpAPI. Only the solver (pure) may re-run o
 - Solver: {Concert 59 + Thai 17 + Climbing 30} = $106 (within $11.60 of $116) and {Concert 59 + Dinner 57} = $116 exact. Output both, best first, each with its evidence.
 
 ### 16.5 Config and env (new contracts; add to `.env.example`, covered by the existing env guard test)
+
+LLM settings already exist (§17): `META_API_KEY`, `META_BASE_URL`, `LLM_MODEL`, `LLM_REASONING`, `LLM_MODE`. The payback prompts use them unchanged; only the SerpAPI and payback settings below are new.
 
 ```
 SERPAPI_API_KEY=                 # human task H13
@@ -472,3 +476,28 @@ Extend the §7 hand-labeled dataset: for each debtor, the expected candidate set
 2. Should the user be able to say which friends are "payback-eligible" or set a budget cap per option? Default: no, dismiss only.
 3. Home city source: config for MVP, calendar location or message mentions later.
 4. Does the target friend's consent matter? The feature is user-facing only and sends nothing to the friend; any "propose this plan to Sam" action is out of scope and would need a separate design.
+
+## 17. LLM provider: Meta Model API (Muse Spark), from `MIGRATION.md` (2026-10-25)
+
+All LLM generation runs on Meta's Model API with `muse-spark-1.3-contributor`. This section is the design-level summary; `MIGRATION.md` has the code detail. The one exception is message embeddings, which stay on Gemini because Meta has no embedding model (§2, §14).
+
+**Two call shapes, one adapter file (`server/src/llm/muse.ts`, the only code that knows the wire format):**
+
+| Need | API | Notes |
+|---|---|---|
+| Structured extraction (every prompt in §6, §14, §15) | Chat Completions `POST /v1/chat/completions`, `response_format: json_schema`, `strict: false`, `temperature: 0` | Meta's strict mode requires every property in `required`; our zod schemas have optional fields, so strict returns HTTP 400. Output is still schema-constrained and validated by zod, with one repair retry. Refusal, truncation (`finish_reason: "length"`) and empty content fail loudly. |
+| Web price lookup (cold start, §6c/§14) | Responses API `POST /v1/responses`, `tools: [{type: "web_search"}]`, then a second structured call | Muse interleaves `phase: "commentary"` progress messages; only the non-commentary message is the answer. Source URLs come from `url_citation` annotations, then `web_search_call.results` (deduped, capped at 10), never from model text. |
+
+**Config (contract):** `META_API_KEY` (required for `LLM_MODE=live`), `META_BASE_URL` (default `https://api.meta.ai/v1`), `LLM_MODEL` (default `muse-spark-1.3-contributor`), `LLM_REASONING` (`default|minimal|low|medium|high|xhigh`, default `low`; `none` returns HTTP 400 and `max` is unavailable on contributor models, so neither is allowed). `GEMINI_MODEL` and `GEMINI_THINKING` are removed; `GEMINI_API_KEY` and `GEMINI_EMBED_MODEL` remain for `EMBED_MODE=live` only.
+
+**What does not change:** the cache → replay fixture → live path, temperature 0, zod validation, "the LLM never does arithmetic", the two-call web-search design, schemas, API routes and DB tables. `llm_cache` keys include the model name, so old Gemini-era entries are never served as Muse answers; replay fixtures are looked up by readable key and still apply.
+
+**Model-specific safeguards (found by the live eval):**
+- Muse Spark at `low` reasoning sometimes computes a number (`$20 × 3 = $60`) or files a per-person price as a total. The RAG step therefore keeps a quoted figure only if that exact dollar amount appears in the retrieved message, and moves a headcount-less total that the text writes per-person ("$20 a head") to `perPersonDollars`. `costFromSnippets` prompt is v2.
+- It also occasionally drops a stated amount (about 1 to 2 runs in 10). An unknown amount is never guessed; it lands in `unaccounted` (§6, step 5).
+
+**Impact on §15/§16:** the four new prompts (`planFinder`, `activityLabel`, `interests`, `serpPrice`) are ordinary Muse Spark structured calls through the same client, so they inherit the guards above. Prompts that return prices must also keep every figure verifiable against the source text or SerpAPI result before code uses it. SerpAPI remains the source for **new-idea** pricing (§15.3 C); Muse `web_search` stays only as the cold-start fallback in `estimateBaseCost`.
+
+**Privacy:** the contributor model gives Meta prompts and completions for training (§8). Use it with synthetic data only; switch `LLM_MODEL=muse-spark-1.3` before real messages.
+
+**Live verification so far (from `MIGRATION.md`, on the migration branch, not re-run here):** replay eval 22/22 events with exact friend totals; live eval 22/22 events and attendees, 19/22 payers. Remaining live misses are the kayak price (live web says about $20, the seed fixture says $25) and two intermittent omissions.

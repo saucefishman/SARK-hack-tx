@@ -270,6 +270,15 @@
         "p_me",
         "p_alex"
       ]
+    },
+    {
+      "key": "hamilton1",
+      "title": "Hamilton Night",
+      "participants": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ]
     }
   ],
   "events": [
@@ -1618,6 +1627,84 @@
         "costSource": "web",
         "note": "Cold-start web step: Alex covers Me, no amount stated anywhere, no history, no price in any message. Per-person $25 comes from the hand-written web replay fixture (webCost); $25 x 2 = $50, Alex -> Me 2500, basis estimated."
       }
+    },
+    {
+      "key": "x-alex-hamilton",
+      "date": "2026-10-17",
+      "time": "19:30",
+      "description": "Hamilton at Bass Concert Hall",
+      "scenarios": [],
+      "attendees": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "person": "p_alex",
+          "amountDollars": 540,
+          "basis": "confirmed"
+        }
+      ],
+      "messages": [
+        {
+          "thread": "hamilton1",
+          "sender": "p_alex",
+          "at": "2026-10-17T14:00",
+          "text": "Hamilton tonight, 7:30! you and Riley still in?"
+        },
+        {
+          "thread": "hamilton1",
+          "sender": "p_riley",
+          "at": "2026-10-17T14:03",
+          "text": "so in!!"
+        },
+        {
+          "thread": "hamilton1",
+          "sender": "p_me",
+          "at": "2026-10-17T14:05",
+          "text": "see you there"
+        },
+        {
+          "thread": "hamilton1",
+          "sender": "p_alex",
+          "at": "2026-10-17T22:40",
+          "text": "tickets were $540 for the three of us, my treat"
+        },
+        {
+          "thread": "hamilton1",
+          "sender": "p_me",
+          "at": "2026-10-17T22:45",
+          "text": "Alex!! thank you so much"
+        }
+      ],
+      "calendar": {
+        "title": "Hamilton at Bass Concert Hall",
+        "durationMin": 180
+      },
+      "expected": {
+        "relevant": true,
+        "note": "Payback demo debt: Alex covers Me and Riley for $540 (stated), $180 each. Alex -> Me 18000 confirmed flips Alex's balance to Me owing him $94.66, so the payback suggestions have a debt to settle."
+      }
+    }
+  ],
+  "plans": [
+    {
+      "key": "plan-khruangbin",
+      "date": "2026-11-07",
+      "time": "20:00",
+      "title": "Khruangbin at Moody Center",
+      "description": "Tickets $59 each",
+      "durationMin": 180,
+      "attendees": ["p_me", "p_alex"]
+    },
+    {
+      "key": "plan-uchi",
+      "date": "2026-11-14",
+      "time": "19:00",
+      "title": "Dinner at Uchi",
+      "durationMin": 120,
+      "attendees": ["p_me", "p_alex"]
     }
   ]
 }

@@ -83,6 +83,19 @@ export const ScenarioEvent = z.object({
 });
 export type ScenarioEvent = z.infer<typeof ScenarioEvent>;
 
+/** A future calendar entry (payback DESIGN §15.3 A). Calendar only: it never reaches the event pipeline or the ledger. */
+export const ScenarioPlan = z.object({
+  key: z.string(),
+  date: IsoDay,
+  time: Clock,
+  title: z.string(),
+  /** A price written as "$59 each" is the planned per-person cost; otherwise the cost comes from purchase history. */
+  description: z.string().optional(),
+  durationMin: z.number().int(),
+  attendees: z.array(Id),
+});
+export type ScenarioPlan = z.infer<typeof ScenarioPlan>;
+
 export const Scenario = z.object({
   version: z.literal(1),
   userId: Id,
@@ -90,5 +103,6 @@ export const Scenario = z.object({
   people: z.array(ScenarioPerson),
   threads: z.array(z.object({ key: z.string(), title: z.string(), participants: z.array(Id) })),
   events: z.array(ScenarioEvent),
+  plans: z.array(ScenarioPlan).default([]),
 });
 export type Scenario = z.infer<typeof Scenario>;

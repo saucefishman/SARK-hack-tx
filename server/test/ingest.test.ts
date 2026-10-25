@@ -27,9 +27,9 @@ describe("ingest", () => {
   it("loads the seed, counts match, and a rerun changes nothing", async () => {
     const db = await testDb();
     const counts = await ingest(db, fileSources(dir));
-    expect(counts).toMatchObject({ persons: 5, calendarEvents: 14, txns: 15, aliasReviews: 0 });
+    expect(counts).toMatchObject({ persons: 5, calendarEvents: 17, txns: 15, aliasReviews: 0 });
     expect(await n(db, "person")).toBe(5);
-    expect(await n(db, "calendar_event")).toBe(14);
+    expect(await n(db, "calendar_event")).toBe(17);
     expect(await n(db, "txn")).toBe(15);
     expect(await n(db, "message")).toBe(counts.messages);
     expect(counts.messages).toBeGreaterThan(60);

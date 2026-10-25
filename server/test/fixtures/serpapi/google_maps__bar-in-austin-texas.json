@@ -1,0 +1,9 @@
+{
+  "_note": "Hand-written replay fixture in SerpAPI google_maps shape (not a captured response). TODO(stub): serpapi-live",
+  "search_parameters": { "engine": "google_maps", "q": "bar in Austin, Texas", "type": "search" },
+  "local_results": [
+    { "position": 1, "title": "Whisler's", "type": "Cocktail bar", "rating": 4.6, "price": "$$", "link": "https://www.google.com/maps/search/Whisler's+Austin" },
+    { "position": 2, "title": "The Roosevelt Room", "type": "Cocktail bar", "rating": 4.7, "price": "$$$", "link": "https://www.google.com/maps/search/The+Roosevelt+Room+Austin" },
+    { "position": 3, "title": "Mean Eyed Cat", "type": "Bar", "rating": 4.5, "price": "$", "link": "https://www.google.com/maps/search/Mean+Eyed+Cat+Austin" }
+  ]
+}

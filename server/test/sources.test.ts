@@ -39,7 +39,7 @@ describe("file sources", () => {
 
   it("FileCalendarSource, NessieFileSource, loadPeople", async () => {
     const cal = await new FileCalendarSource(path.join(dir, "calendar.json")).listEvents();
-    expect(cal).toHaveLength(14);
+    expect(cal).toHaveLength(17); // 15 past events + 2 future plans
     const nes = new NessieFileSource(path.join(dir, "nessie.json"));
     expect((await nes.getCustomers()).length).toBe(5);
     expect((await nes.getPurchases("acct_me")).length).toBe(13);

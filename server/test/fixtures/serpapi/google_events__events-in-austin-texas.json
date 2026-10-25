@@ -1,0 +1,27 @@
+{
+  "_note": "Hand-written replay fixture in SerpAPI google_events shape (not a captured response). TODO(stub): serpapi-live",
+  "search_parameters": { "engine": "google_events", "q": "events in Austin, Texas" },
+  "events_results": [
+    {
+      "title": "Austin FC vs. Sporting KC",
+      "date": { "start_date": "Nov 21", "when": "Sat, Nov 21, 7 – 9 PM CST" },
+      "address": ["Q2 Stadium", "Austin, TX"],
+      "link": "https://www.google.com/search?q=Austin+FC+vs+Sporting+KC",
+      "description": "Match tickets from $38.",
+      "venue": { "name": "Q2 Stadium", "rating": 4.7 }
+    },
+    {
+      "title": "Comedy at The Creek and The Cave",
+      "date": { "start_date": "Dec 4", "when": "Fri, Dec 4, 8 PM CST" },
+      "address": ["The Creek and The Cave", "Austin, TX"],
+      "link": "https://www.google.com/search?q=Comedy+at+The+Creek+and+The+Cave",
+      "ticket_info": [{ "source": "Eventbrite", "link_type": "tickets", "price": "$22" }]
+    },
+    {
+      "title": "Free Week Open Mic",
+      "date": { "start_date": "Nov 10", "when": "Tue, Nov 10, 7 PM CST" },
+      "address": ["Cheer Up Charlies", "Austin, TX"],
+      "link": "https://www.google.com/search?q=Free+Week+Open+Mic"
+    }
+  ]
+}

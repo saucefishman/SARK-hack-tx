@@ -1,4 +1,4 @@
-// Pipeline orchestrator (DESIGN 4): ingest -> embed -> protoEvents -> merge -> relevance -> attribution -> ledger.
+// Pipeline orchestrator (DESIGN 4): ingest -> embed -> protoEvents -> merge -> relevance -> attribution -> ledger -> payback.
 // Every stage is idempotent, so any `from` stage can be rerun on its own.
 import type { Db } from "../db/pool";
 import { getConfig } from "../config";
@@ -10,12 +10,13 @@ import { runAttribution } from "./attribution";
 import { embedMessages } from "./embed";
 import { ingest, type IngestSources } from "./ingest";
 import { runLedger } from "./ledger";
+import { runPayback } from "./payback";
 import { mergeEvents } from "./merge";
 import { buildProtoEvents } from "./protoEvents";
 import { runRelevance } from "./relevance";
 
-export type Stage = "ingest" | "embed" | "protoEvents" | "merge" | "relevance" | "attribution" | "ledger";
-export const STAGES: Stage[] = ["ingest", "embed", "protoEvents", "merge", "relevance", "attribution", "ledger"];
+export type Stage = "ingest" | "embed" | "protoEvents" | "merge" | "relevance" | "attribution" | "ledger" | "payback";
+export const STAGES: Stage[] = ["ingest", "embed", "protoEvents", "merge", "relevance", "attribution", "ledger", "payback"];
 
 export interface RunOptions {
   from?: Stage;
@@ -72,6 +73,8 @@ async function runPipelineImpl(db: Db, opts: RunOptions): Promise<Record<string,
         return runAttribution(db, llm);
       case "ledger":
         return runLedger(db);
+      case "payback":
+        return runPayback(db, { log });
     }
   };
   for (const stage of STAGES.slice(start)) {

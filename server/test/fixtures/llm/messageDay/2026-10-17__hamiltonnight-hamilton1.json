@@ -1,0 +1,26 @@
+{
+  "events": [
+    {
+      "date": "2026-10-17",
+      "coveredPhrases": [
+        "my treat"
+      ],
+      "paymentMentions": [],
+      "sourceMessageIds": [
+        "hamiltonnight_hamilton1:1792245600000:4",
+        "hamiltonnight_hamilton1:1792245780000:3",
+        "hamiltonnight_hamilton1:1792245900000:2",
+        "hamiltonnight_hamilton1:1792276800000:1",
+        "hamiltonnight_hamilton1:1792277100000:0"
+      ],
+      "description": "Hamilton at Bass Concert Hall",
+      "peopleIds": [
+        "p_me",
+        "p_alex",
+        "p_riley"
+      ],
+      "payerId": "p_alex",
+      "amountDollars": 540
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 {
   "friends": {
     "p_alex": {
-      "spentOnYouCents": 5500,
+      "spentOnYouCents": 23500,
       "youSpentOnThemCents": 17034,
-      "balanceCents": 8534,
+      "balanceCents": -9466,
       "possibleCents": 7500
     },
     "p_sam": {
@@ -808,6 +808,36 @@
           "amountCents": 2500,
           "kind": "covered",
           "basis": "estimated"
+        }
+      ]
+    },
+    {
+      "key": "x-alex-hamilton",
+      "date": "2026-10-17",
+      "description": "Hamilton at Bass Concert Hall",
+      "attendeeIds": [
+        "p_alex",
+        "p_me",
+        "p_riley"
+      ],
+      "payers": [
+        {
+          "personId": "p_alex",
+          "amountCents": 54000,
+          "basis": "confirmed"
+        }
+      ],
+      "totalCents": 54000,
+      "sourceCount": 2,
+      "relevant": true,
+      "scenarios": [],
+      "ledger": [
+        {
+          "payerId": "p_alex",
+          "beneficiaryId": "p_me",
+          "amountCents": 18000,
+          "kind": "covered",
+          "basis": "confirmed"
         }
       ]
     }

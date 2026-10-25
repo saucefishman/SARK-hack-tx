@@ -20,11 +20,11 @@ describe("generateSeed", () => {
     expect(seedFiles(generateSeed(scenario))["truth.json"]).toBe(onDisk);
   });
 
-  it("covers all 12 scenarios, 22 events, both directions", () => {
+  it("covers all 12 scenarios, 23 events, both directions", () => {
     const { truth } = generateSeed(scenario);
     const covered = new Set(truth.events.flatMap((e) => e.scenarios));
     for (let i = 1; i <= 12; i++) expect(covered.has(i), `scenario ${i}`).toBe(true);
-    expect(truth.events.length).toBe(22);
+    expect(truth.events.length).toBe(23);
     for (const f of Object.values(truth.friends)) {
       expect(f.spentOnYouCents).toBeGreaterThan(0);
       expect(f.youSpentOnThemCents).toBeGreaterThan(0);
@@ -54,7 +54,8 @@ describe("generateSeed", () => {
     //   Me spent on Alex = ember1 60/3 2000 + uchi1 120/4 3000 + ember2 90/3 3000 + lunch 45/3 1500
     //     + tacos 48/4 1200 + uchi2 150/5 3000 + rounding 10000/3 -> 3334 (p_alex sorts first) = 17034.
     //   Repayment Alex->Me 3000.  balance = 17034 - 5500 - 3000 = 8534.
-    expect(friends.p_alex).toEqual({ spentOnYouCents: 5500, youSpentOnThemCents: 17034, balanceCents: 8534, possibleCents: 7500 });
+    //   Hamilton (payback demo debt): Alex paid $540 for 3 -> 18000 on Me.  So spent on Me 23500, balance 8534 - 18000 = -9466 (Me owes Alex).
+    expect(friends.p_alex).toEqual({ spentOnYouCents: 23500, youSpentOnThemCents: 17034, balanceCents: -9466, possibleCents: 7500 });
     // Sam: spent on Me = lenoir 84/3 2800 + two-payers 1750 + coffee 12/2 600
     //     + karaoke (RAG estimate $20 x 3 / 3) 2000 = 7150.
     //   Me on Sam = uchi1 3000 + dinner 60/3 2000 + ember3 72/3 2400 + tacos 1200 + uchi2 3000 = 11600.

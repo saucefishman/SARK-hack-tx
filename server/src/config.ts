@@ -28,6 +28,16 @@ const Env = z.object({
   CALENDAR_FILE: z.string().default("./seed/generated/calendar.json"),
   NESSIE_FILE: z.string().default("./seed/generated/nessie.json"),
   PORT: z.coerce.number().int().default(3000),
+  // Demo clock (YYYY-MM-DD). Calendar entries after it are plans (payback), not past events. Default: today (UTC).
+  AS_OF_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  // Payback suggestions (DESIGN §15/§16). SerpAPI prices new ideas; replay reads server/test/fixtures/serpapi/.
+  SERPAPI_API_KEY: z.string().optional(),
+  SERPAPI_MODE: z.enum(["live", "replay"]).default("replay"),
+  SERPAPI_MAX_CALLS: z.coerce.number().int().min(0).default(20),
+  HOME_CITY: z.string().default("Austin, Texas"),
+  PAYBACK_TOLERANCE_PCT: z.coerce.number().min(0).default(10),
+  PAYBACK_TOLERANCE_MIN_CENTS: z.coerce.number().int().min(0).default(1000),
+  PAYBACK_MAX_BUNDLE: z.coerce.number().int().min(1).max(5).default(3),
   // LangSmith tracing (off by default; read by src/obs/tracing.ts). Traces include prompt text.
   LANGSMITH_TRACING: z.enum(["true", "false"]).optional(),
   LANGSMITH_API_KEY: z.string().optional(),
@@ -40,6 +50,11 @@ export type Config = z.infer<typeof Env> & {
   /** Absolute path resolver for repo-relative paths in env. */
   resolvePath: (p: string) => string;
 };
+
+/** The demo clock: AS_OF_DATE, else today (UTC), as YYYY-MM-DD. */
+export function getAsOf(cfg: Pick<Config, "AS_OF_DATE"> = getConfig()): string {
+  return cfg.AS_OF_DATE ?? new Date().toISOString().slice(0, 10);
+}
 
 let cached: Config | undefined;
 
@@ -59,6 +74,9 @@ export function getConfig(overrides: Partial<z.input<typeof Env>> = {}): Config 
   }
   if (cfg.EMBED_MODE === "live" && !cfg.GEMINI_API_KEY) {
     throw new Error("EMBED_MODE=live requires GEMINI_API_KEY (human task H3)");
+  }
+  if (cfg.SERPAPI_MODE === "live" && !cfg.SERPAPI_API_KEY) {
+    throw new Error("SERPAPI_MODE=live requires SERPAPI_API_KEY (human task H13)");
   }
   if (Object.keys(overrides).length === 0) cached = cfg;
   return cfg;

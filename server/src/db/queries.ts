@@ -83,9 +83,15 @@ export async function getFriendSummaries(db: Db, onlyIds?: string[]): Promise<Fr
     "SELECT id, display_name FROM person WHERE is_user = false",
   );
   const entries = await listLedgerEntries(db);
+  const { rows: sugg } = await db.query<{ friend_id: string; n: string }>("SELECT friend_id, count(*) AS n FROM payback_suggestion GROUP BY friend_id");
+  const paybackCount = new Map(sugg.map((s) => [s.friend_id, Number(s.n)]));
   return friends
     .filter((f) => !onlyIds || onlyIds.includes(f.id))
-    .map((f) => summarize(f, entries))
+    .map((f) => {
+      const row = summarize(f, entries);
+      const n = paybackCount.get(f.id) ?? 0;
+      return row.balanceCents < 0 && n > 0 ? { ...row, paybackCount: n } : row; // suggestions only exist while the user owes
+    })
     .sort(byGivenThenName);
 }
 
